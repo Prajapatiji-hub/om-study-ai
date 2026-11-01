@@ -48,16 +48,16 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build release APK
+      -       - name: Build release APK
         env:
           FB_API_KEY: ${{ secrets.FB_API_KEY }}
           FB_APP_ID: ${{ secrets.FB_APP_ID }}
           FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
           FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
-        run: flutter build apk --release --dart-define=FB_API_KEY="$FB_API_KEY" --dart-define=FB_APP_ID="$FB_APP_ID" --dart-define=FB_PROJECT_ID="$FB_PROJECT_ID" --dart-define=FB_SENDER_ID="$FB_SENDER_ID"
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: om-study-ai-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+        shell: bash
+        run: |
+          flutter build apk --release \
+            "--dart-define=FB_API_KEY=${FB_API_KEY}" \
+            "--dart-define=FB_APP_ID=${FB_APP_ID}" \
+            "--dart-define=FB_PROJECT_ID=${FB_PROJECT_ID}" \
+            "--dart-define=FB_SENDER_ID=${FB_SENDER_ID}"
