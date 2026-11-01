@@ -5,6 +5,7 @@ import '../theme.dart';
 import 'coming_soon.dart';
 import 'onboarding.dart';
 import 'profile.dart';
+import 'syllabus.dart';
 
 class Module {
   final String title;
@@ -42,9 +43,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final Future<void> _init = widget.repo.ensureProfile();
 
   void _open(Module m) {
-    final page = m.ready
-        ? ProfileScreen(repo: widget.repo)
-        : ComingSoonScreen(title: m.title);
+    final page = m.title == 'मेरा सिलेबस'
+        ? SyllabusScreen(repo: widget.repo)
+        : (m.ready
+            ? ProfileScreen(repo: widget.repo)
+            : ComingSoonScreen(title: m.title));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
