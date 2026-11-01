@@ -49,12 +49,12 @@ steps:
     run: flutter pub get
 
   - name: Build release APK
+    shell: bash
     env:
       FB_API_KEY: ${{ secrets.FB_API_KEY }}
       FB_APP_ID: ${{ secrets.FB_APP_ID }}
       FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
       FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
-    shell: bash
     run: |
       flutter build apk --release \
         "--dart-define=FB_API_KEY=${FB_API_KEY}" \
