@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  FB_API_KEY: AIzaSyADDOa-s0yNxy78fLYbNAHKe84Ui33tuG8
+  FB_APP_ID: 1:1058735430910:android:9310dc10bf4dd731a999af
+  FB_PROJECT_ID: prajapati-507d7
+  FB_SENDER_ID: "1058735430910"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -36,12 +42,12 @@ jobs:
       - run: flutter pub get
 
       - name: Build release APK
-        run: >
-          flutter build apk --release
-          --dart-define=FB_API_KEY=${{ secrets.FB_API_KEY }}
-          --dart-define=FB_APP_ID=${{ secrets.FB_APP_ID }}
-          --dart-define=FB_PROJECT_ID=${{ secrets.FB_PROJECT_ID }}
-          --dart-define=FB_SENDER_ID=${{ secrets.FB_SENDER_ID }}
+        run: |
+          flutter build apk --release \
+            --dart-define=FB_API_KEY="$FB_API_KEY" \
+            --dart-define=FB_APP_ID="$FB_APP_ID" \
+            --dart-define=FB_PROJECT_ID="$FB_PROJECT_ID" \
+            --dart-define=FB_SENDER_ID="$FB_SENDER_ID"
 
       - uses: actions/upload-artifact@v4
         with:
