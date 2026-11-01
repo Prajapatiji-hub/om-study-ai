@@ -233,7 +233,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: const Text('आगे बढ़ें')),
         ],
         if (q.type == 'text') ...[
-          TextField(controller: _text, maxLength: 200, decoration: const InputDecoration(hintText: 'यहाँ लिखें')),
+          TextField(
+            controller: _text,
+            maxLength: 200,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(hintText: 'यहाँ लिखें'),
+          ),
           const SizedBox(height: 8),
           FilledButton(
               onPressed: _saving || _text.text.trim().isEmpty ? null : () => _save(q, _text.text.trim()),

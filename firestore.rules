@@ -25,6 +25,11 @@ service cloud.firestore {
       match /onboarding/{docId} {
         allow read, write: if isOwner(uid);
       }
+
+      // Syllabus progress belongs only to the authenticated account owner.
+      match /syllabus_progress/{trackId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     // Shared public syllabus data (Phase 4): everyone signed-in can read, nobody can write from the app.
