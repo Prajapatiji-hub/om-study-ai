@@ -1,63 +1,70 @@
 name: Build APK
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+workflow_dispatch:
+push:
+branches:
+- main
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+  - name: Setup Flutter
+    uses: subosito/flutter-action@v2
+    with:
+      channel: stable
+      cache: true
 
-      - name: Generate Android platform files
-        run: |
-          cp -r lib /tmp/lib_backup
-          cp pubspec.yaml /tmp/pubspec_backup.yaml
+  - name: Generate Android platform files
+    run: |
+      cp -r lib /tmp/lib_backup
+      cp pubspec.yaml /tmp/pubspec_backup.yaml
 
-          flutter create \
-            --platforms=android \
-            --org com.omstudy \
-            --project-name om_study_ai .
+      flutter create \
+        --platforms=android \
+        --org com.omstudy \
+        --project-name om_study_ai .
 
-          rm -rf lib
-          cp -r /tmp/lib_backup lib
+      rm -rf lib
+      cp -r /tmp/lib_backup lib
 
-          cp /tmp/pubspec_backup.yaml pubspec.yaml
-          rm -rf test
+      cp /tmp/pubspec_backup.yaml pubspec.yaml
+      rm -rf test
 
-      - name: Install Flutter dependencies
-        run: flutter pub get
+  - name: Install Flutter dependencies
+    run: flutter pub get
 
-      -       - name: Build release APK
-        env:
-          FB_API_KEY: ${{ secrets.FB_API_KEY }}
-          FB_APP_ID: ${{ secrets.FB_APP_ID }}
-          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
-          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
-        shell: bash
-        run: |
-          flutter build apk --release \
-            "--dart-define=FB_API_KEY=${FB_API_KEY}" \
-            "--dart-define=FB_APP_ID=${FB_APP_ID}" \
-            "--dart-define=FB_PROJECT_ID=${FB_PROJECT_ID}" \
-            "--dart-define=FB_SENDER_ID=${FB_SENDER_ID}"
+  - name: Build release APK
+    env:
+      FB_API_KEY: ${{ secrets.FB_API_KEY }}
+      FB_APP_ID: ${{ secrets.FB_APP_ID }}
+      FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+      FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
+    shell: bash
+    run: |
+      flutter build apk --release \
+        "--dart-define=FB_API_KEY=${FB_API_KEY}" \
+        "--dart-define=FB_APP_ID=${FB_APP_ID}" \
+        "--dart-define=FB_PROJECT_ID=${FB_PROJECT_ID}" \
+        "--dart-define=FB_SENDER_ID=${FB_SENDER_ID}"
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: om-study-ai-apk
+      path: build/app/outputs/flutter-apk/app-release.apk
+      if-no-files-found: error
