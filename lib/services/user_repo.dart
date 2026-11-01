@@ -43,6 +43,17 @@ class UserRepo {
       .set({id: value}, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
 
+  CollectionReference<Map<String, dynamic>> get _progressCol =>
+      _userDoc.collection('syllabus_progress');
+
+  Stream<Map<String, dynamic>> progress(String trackId) =>
+      _progressCol.doc(trackId).snapshots().map((s) => s.data() ?? {});
+
+  Future<void> setTopicDone(String trackId, String key, bool done) => _progressCol
+      .doc(trackId)
+      .set({key: done ? true : FieldValue.delete()}, SetOptions(merge: true))
+      .timeout(const Duration(seconds: 10));
+
   Future<void> updateProfile(Map<String, dynamic> data) => _userDoc
       .set(data, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
