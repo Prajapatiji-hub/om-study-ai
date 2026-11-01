@@ -35,13 +35,33 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Check secrets format
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
+        run: |
+          fail=0
+          case "$FB_API_KEY" in AIza*) ;; *) echo "FB_API_KEY galat hai (AIza se shuru hona chahiye)"; fail=1;; esac
+          case "$FB_APP_ID" in 1:*:android:*) ;; *) echo "FB_APP_ID galat hai (1:...:android:... jaisa hona chahiye)"; fail=1;; esac
+          case "$FB_SENDER_ID" in ''|*[!0-9]*) echo "FB_SENDER_ID sirf ank hona chahiye"; fail=1;; esac
+          if [ -z "$FB_PROJECT_ID" ]; then echo "FB_PROJECT_ID khali hai"; fail=1; fi
+          case "$FB_API_KEY$FB_APP_ID$FB_PROJECT_ID$FB_SENDER_ID" in *'"'*|*' '*|*','*) echo "Kisi secret me quote, space ya comma hai"; fail=1;; esac
+          exit $fail
+
       - name: Build release APK
-        run: >
-          flutter build apk --release
-          --dart-define=FB_API_KEY=${{ secrets.FB_API_KEY }}
-          --dart-define=FB_APP_ID=${{ secrets.FB_APP_ID }}
-          --dart-define=FB_PROJECT_ID=${{ secrets.FB_PROJECT_ID }}
-          --dart-define=FB_SENDER_ID=${{ secrets.FB_SENDER_ID }}
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
+        run: |
+          flutter build apk --release \
+            --dart-define=FB_API_KEY="$FB_API_KEY" \
+            --dart-define=FB_APP_ID="$FB_APP_ID" \
+            --dart-define=FB_PROJECT_ID="$FB_PROJECT_ID" \
+            --dart-define=FB_SENDER_ID="$FB_SENDER_ID"
 
       - uses: actions/upload-artifact@v4
         with:
