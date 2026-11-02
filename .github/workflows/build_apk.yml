@@ -10,17 +10,25 @@ on:
 permissions:
   contents: read
 
-env:
-  FB_API_KEY: AIzaSyADDOa-s0yNxy78fLYbNAHKe84Ui33tuG8
-  FB_APP_ID: 1:1058735430910:android:9310dc10bf4dd731a999af
-  FB_PROJECT_ID: prajapati-507d7
-  FB_SENDER_ID: "1058735430910"
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Firebase configuration
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
+        run: |
+          for name in FB_API_KEY FB_APP_ID FB_PROJECT_ID FB_SENDER_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub Actions secret $name is missing. Add all four FB_* repository secrets."
+              exit 1
+            fi
+          done
 
       - uses: actions/setup-java@v4
         with:
@@ -39,17 +47,33 @@ jobs:
           flutter create --platforms=android --org com.omstudy --project-name om_study_ai .
           rm -rf lib && cp -r /tmp/lib_backup lib
           cp /tmp/pubspec_backup.yaml pubspec.yaml
-          rm -rf test
 
-      - run: flutter pub get
+      - name: Generate Firebase configuration source
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          values = {
+              "firebaseApiKey": os.environ["FB_API_KEY"],
+              "firebaseAppId": os.environ["FB_APP_ID"],
+              "firebaseProjectId": os.environ["FB_PROJECT_ID"],
+              "firebaseSenderId": os.environ["FB_SENDER_ID"],
+          }
+          with open("lib/firebase_build_config.dart", "w", encoding="utf-8") as f:
+              for name, value in values.items():
+                  f.write(f"const {name} = {json.dumps(value)};\n")
+          PY
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
 
       - name: Build release APK
-        run: |
-          flutter build apk --release \
-            --dart-define=FB_API_KEY="$FB_API_KEY" \
-            --dart-define=FB_APP_ID="$FB_APP_ID" \
-            --dart-define=FB_PROJECT_ID="$FB_PROJECT_ID" \
-            --dart-define=FB_SENDER_ID="$FB_SENDER_ID"
+        run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
         with:

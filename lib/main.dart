@@ -2,27 +2,22 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_gate.dart';
+import 'firebase_build_config.dart';
 import 'theme.dart';
-
-// These values are passed at build time (see README_HINDI.md). They are NOT AI keys.
-const _apiKey = String.fromEnvironment('FB_API_KEY');
-const _appId = String.fromEnvironment('FB_APP_ID');
-const _projectId = String.fromEnvironment('FB_PROJECT_ID');
-const _senderId = String.fromEnvironment('FB_SENDER_ID');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final configured = _apiKey.isNotEmpty &&
-      _appId.isNotEmpty &&
-      _projectId.isNotEmpty &&
-      _senderId.isNotEmpty;
+  final configured = firebaseApiKey.isNotEmpty &&
+      firebaseAppId.isNotEmpty &&
+      firebaseProjectId.isNotEmpty &&
+      firebaseSenderId.isNotEmpty;
   if (configured) {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        apiKey: _apiKey,
-        appId: _appId,
-        projectId: _projectId,
-        messagingSenderId: _senderId,
+        apiKey: firebaseApiKey,
+        appId: firebaseAppId,
+        projectId: firebaseProjectId,
+        messagingSenderId: firebaseSenderId,
       ),
     );
   }
