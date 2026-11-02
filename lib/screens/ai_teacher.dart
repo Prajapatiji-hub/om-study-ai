@@ -77,11 +77,28 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
         _loadingHistory = false;
       });
       _scrollToBottom();
-    } catch (_) {
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      final message = switch (e.code) {
+        'permission-denied' =>
+          'Firebase ने चैट पढ़ने की अनुमति नहीं दी। Firebase Console में OM STUDY AI के नए Firestore Rules को Publish करना बाकी हो सकता है।',
+        'unauthenticated' =>
+          'आपका लॉगिन समाप्त हो गया है। कृपया लॉगआउट करके फिर लॉगिन करें।',
+        'unavailable' || 'deadline-exceeded' =>
+          'Firebase सर्वर से अभी संपर्क नहीं हो पा रहा। थोड़ी देर बाद फिर कोशिश करें।',
+        'failed-precondition' =>
+          'Firebase की चैट क्वेरी पूरी नहीं हो सकी। Database configuration जाँचनी होगी।',
+        _ => 'चैट लोड नहीं हुई (Firebase: ${e.code})। फिर कोशिश करें।',
+      };
+      setState(() {
+        _loadingHistory = false;
+        _error = message;
+      });
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingHistory = false;
-        _error = 'पुरानी बातचीत लोड नहीं हो पाई। इंटरनेट जाँचकर फिर खोलें।';
+        _error = 'चैट लोड नहीं हुई। कृपया फिर कोशिश करें।';
       });
     }
   }
@@ -285,7 +302,17 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                child: Column(
+                  children: [
+                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    if (!_sending && !_loadingHistory)
+                      TextButton.icon(
+                        onPressed: _loadHistory,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('पुरानी बातचीत फिर लोड करें'),
+                      ),
+                  ],
+                ),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
