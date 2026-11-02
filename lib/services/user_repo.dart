@@ -175,20 +175,35 @@ class UserRepo {
     required String quizId,
     required int score,
     required int total,
-    required List<int> answers,
+    required List<Map<String, dynamic>> responses,
   }) async {
     if (quizId.isEmpty || quizId.length > 80) {
       throw ArgumentError('टेस्ट की पहचान सही नहीं है।');
     }
     if (total < 1 || total > 100 || score < 0 || score > total ||
-        answers.length != total || answers.any((answer) => answer < 0 || answer > 3)) {
+        responses.length != total) {
       throw ArgumentError('टेस्ट का परिणाम सही नहीं है।');
+    }
+    for (final response in responses) {
+      final question = response['question'];
+      final options = response['options'];
+      final selected = response['selectedIndex'];
+      final correct = response['correctIndex'];
+      if (question is! String || question.isEmpty || question.length > 1000 ||
+          options is! List || options.length < 2 || options.length > 6 ||
+          options.any((option) => option is! String || option.length > 300) ||
+          selected is! int || selected < 0 || selected >= options.length ||
+          correct is! int || correct < 0 || correct >= options.length ||
+          response['explanation'] is! String ||
+          (response['explanation'] as String).length > 2000) {
+        throw ArgumentError('टेस्ट के उत्तर का विवरण सही नहीं है।');
+      }
     }
     await _quizAttemptsCol.add({
       'quizId': quizId,
       'score': score,
       'total': total,
-      'answers': answers,
+      'responses': responses,
       'createdAt': FieldValue.serverTimestamp(),
     }).timeout(const Duration(seconds: 15));
   }
