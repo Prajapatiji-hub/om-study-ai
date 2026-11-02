@@ -201,6 +201,5 @@ export default {
       console.error("Gemini request failed", { model: MODEL, code: "network_or_runtime_error" });
       return json({ error: "provider_unavailable", message: "AI सेवा से संपर्क नहीं हो पाया। इंटरनेट या सर्वर जाँचकर फिर कोशिश करें।" }, 503);
     }
-    }
   },
 };
