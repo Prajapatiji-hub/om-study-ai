@@ -30,9 +30,9 @@ jobs:
             fi
           done
 
-      - name: Check AI backend JavaScript syntax
+      - name: Check free AI Worker JavaScript
         run: |
-          cd functions
+          cd workers
           npm install --no-audit --no-fund
           npm run check
           cd ..
@@ -80,7 +80,10 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          AI_WORKER_URL: ${{ secrets.AI_WORKER_URL }}
+        run: |
+          flutter build apk --release --dart-define=AI_WORKER_URL="$AI_WORKER_URL"
 
       - uses: actions/upload-artifact@v4
         with:
