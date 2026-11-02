@@ -41,7 +41,6 @@ async function verifyFirebaseToken(request, projectId) {
     audience: projectId,
   });
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("UNAUTHENTICATED");
-  return payload.sub;
 }
 
 function systemInstruction(mode, context) {
@@ -71,9 +70,8 @@ export default {
       return json({ error: "service_not_configured", message: "AI सेवा अभी सेटअप नहीं है।" }, 503);
     }
 
-    let uid;
     try {
-      uid = await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
+      await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
     } catch (_) {
       return json({ error: "unauthenticated", message: "AI टीचर इस्तेमाल करने के लिए पहले लॉगिन करें।" }, 401);
     }
@@ -111,7 +109,6 @@ export default {
           "विद्यार्थी का चुना उत्तर: " + (selectedAnswer || "नहीं दिया गया"),
           "सत्यापित सही उत्तर: " + (correctAnswer || "नहीं दिया गया"),
           "उपलब्ध स्पष्टीकरण: " + (explanation || "नहीं दिया गया"),
-          "प्रमाणित Firebase user id: " + uid,
         ].join("\n")
       : "यह सामान्य ट्यूटर बातचीत है।";
 
