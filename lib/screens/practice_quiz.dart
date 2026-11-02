@@ -61,7 +61,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   bool _saving = false;
   bool _saved = false;
   String? _saveError;
-  final List<int> _answers = [];
+  final List<Map<String, dynamic>> _responses = [];
 
   PracticeQuestion get _current => _questions[_index];
   bool get _finished => _index >= _questions.length;
@@ -70,7 +70,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     if (_selected == null || _answered) return;
     setState(() {
       _answered = true;
-      _answers.add(_selected!);
+      _responses.add({
+        'question': _current.question,
+        'options': List<String>.from(_current.options),
+        'selectedIndex': _selected!,
+        'correctIndex': _current.answer,
+        'explanation': _current.explanation,
+      });
       if (_selected == _current.answer) _score++;
     });
   }
@@ -100,7 +106,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         quizId: 'starter_basics_01',
         score: _score,
         total: _questions.length,
-        answers: List<int>.from(_answers),
+        responses: List<Map<String, dynamic>>.from(_responses),
       );
       if (mounted) setState(() => _saved = true);
     } catch (e) {
@@ -119,7 +125,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       _saving = false;
       _saved = false;
       _saveError = null;
-      _answers.clear();
+      _responses.clear();
     });
   }
 
