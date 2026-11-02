@@ -10,6 +10,7 @@ import 'study_plan.dart';
 import 'notes.dart';
 import 'practice_quiz.dart';
 import 'quiz_history.dart';
+import 'mistake_review.dart';
 
 class Module {
   final String title;
@@ -30,6 +31,7 @@ const kModules = [
   Module('मेरे वीडियो', Icons.ondemand_video),
   Module('प्रैक्टिस टेस्ट', Icons.quiz, ready: true),
   Module('मेरी प्रगति', Icons.show_chart, ready: true),
+  Module('मेरी गलतियाँ', Icons.fact_check, ready: true),
   Module('मेरी AI मेमोरी', Icons.psychology),
   Module('पढ़ाई के रिमाइंडर', Icons.alarm),
   Module('मेरी प्रोफ़ाइल', Icons.person, ready: true),
@@ -57,9 +59,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? PracticeQuizScreen(repo: widget.repo)
                     : (m.title == 'मेरी प्रगति'
                         ? QuizHistoryScreen(repo: widget.repo)
-                        : (m.ready
+                        : (m.title == 'मेरी गलतियाँ'
+                            ? MistakeReviewScreen(repo: widget.repo)
+                            : (m.ready
                 ? ProfileScreen(repo: widget.repo)
-                : ComingSoonScreen(title: m.title))))));
+                : ComingSoonScreen(title: m.title)))))));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
