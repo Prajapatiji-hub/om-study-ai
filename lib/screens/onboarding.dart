@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../services/user_repo.dart';
 import '../theme.dart';
@@ -157,8 +158,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (q.id == 'language') await widget.repo.updateProfile({'language': value});
       _idx++;
       _prime();
-    } catch (_) {
-      _error = 'सहेजा नहीं जा सका। इंटरनेट जाँचकर दोबारा कोशिश करें।';
+    } catch (e) {
+      final code = e is FirebaseException ? e.code : e.runtimeType.toString();
+      _error = 'सहेजा नहीं जा सका (कारण: $code)। दोबारा कोशिश करें।';
     }
     if (mounted) setState(() => _saving = false);
   }

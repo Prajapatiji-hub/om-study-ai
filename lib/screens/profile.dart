@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
@@ -55,8 +56,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await widget.repo.user.updateDisplayName(name);
       _msg = 'सेव हो गया।';
       _isError = false;
-    } catch (_) {
-      _msg = 'सेव नहीं हुआ। इंटरनेट जाँचें।';
+    } catch (e) {
+      final code = e is FirebaseException ? e.code : e.runtimeType.toString();
+      _msg = 'सेव नहीं हुआ (कारण: $code)। स्क्रीनशॉट भेजें।';
       _isError = true;
     }
     if (mounted) setState(() => _saving = false);
