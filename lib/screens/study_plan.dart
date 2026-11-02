@@ -33,7 +33,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       await widget.repo.addStudyTask(title);
       _taskController.clear();
     } catch (e) {
-      setState(() => _error = 'काम सेव नहीं हुआ (\${e.runtimeType})। दोबारा कोशिश करें।');
+      setState(() => _error = 'काम सेव नहीं हुआ (${e.runtimeType})। दोबारा कोशिश करें।');
     }
     if (mounted) setState(() => _adding = false);
   }
@@ -44,7 +44,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('लक्ष्य सेव नहीं हुआ (\${e.runtimeType})')),
+          SnackBar(content: Text('लक्ष्य सेव नहीं हुआ (${e.runtimeType})')),
         );
       }
     }
@@ -56,7 +56,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('स्थिति सेव नहीं हुई (\${e.runtimeType})')),
+          SnackBar(content: Text('स्थिति सेव नहीं हुई (${e.runtimeType})')),
         );
       }
     }
@@ -68,7 +68,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('काम हटाया नहीं जा सका (\${e.runtimeType})')),
+          SnackBar(content: Text('काम हटाया नहीं जा सका (${e.runtimeType})')),
         );
       }
     }
@@ -124,7 +124,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                         minHeight: 8,
                       ),
                       const SizedBox(height: 6),
-                      Text('\${done} काम पूरे · रोज़ का लक्ष्य \${target} मिनट'),
+                      Text('${done} काम पूरे · रोज़ का लक्ष्य ${target} मिनट'),
                     ],
                   ),
                 ),
