@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.5-flash-lite";
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_ITEMS = 8;
 const MAX_QUESTION_CHARS = 3000;
@@ -9,6 +9,29 @@ const MAX_EXPLANATION_CHARS = 2000;
 const GOOGLE_KEYS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
 );
+
+export function classifyProviderError(status, providerMessage = "") {
+  const detail = String(providerMessage).toLowerCase();
+  if (status === 429) {
+    return { error: "resource_exhausted", message: "Gemini की मुफ्त उपयोग सीमा अभी पूरी हुई है। सीमा रीसेट होने पर फिर कोशिश करें।", httpStatus: 429 };
+  }
+  if (status === 400 && /api.?key|api key not valid|invalid api key/.test(detail)) {
+    return { error: "invalid_api_key", message: "AI API Key स्वीकार नहीं हुई। व्यवस्थापक को Cloudflare Secret जाँचना होगा।", httpStatus: 503 };
+  }
+  if (status === 401 || status === 403) {
+    return { error: "provider_permission_denied", message: "Gemini API की अनुमति नहीं मिली। Google AI Studio में API Key और API access जाँचें।", httpStatus: 503 };
+  }
+  if (status === 404) {
+    return { error: "model_not_found", message: "AI मॉडल उपलब्ध नहीं है। व्यवस्थापक को मॉडल सेटिंग जाँचनी होगी।", httpStatus: 503 };
+  }
+  if (status === 400) {
+    return { error: "invalid_provider_request", message: "AI को भेजा गया अनुरोध स्वीकार नहीं हुआ। सवाल छोटा करके फिर कोशिश करें।", httpStatus: 400 };
+  }
+  if (status >= 500) {
+    return { error: "provider_server_error", message: "Gemini सर्वर में अस्थायी समस्या है। थोड़ी देर बाद कोशिश करें।", httpStatus: 503 };
+  }
+  return { error: "provider_unavailable", message: "AI सेवा अभी उपलब्ध नहीं है। बाद में कोशिश करें।", httpStatus: 503 };
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
