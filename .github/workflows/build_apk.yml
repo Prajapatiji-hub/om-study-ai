@@ -10,12 +10,6 @@ on:
 permissions:
   contents: read
 
-env:
-  FB_API_KEY: ${{ secrets.FB_API_KEY }}
-  FB_APP_ID: ${{ secrets.FB_APP_ID }}
-  FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
-  FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,6 +17,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check Firebase configuration
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
         run: |
           for name in FB_API_KEY FB_APP_ID FB_PROJECT_ID FB_SENDER_ID; do
             if [ -z "${!name}" ]; then
@@ -49,9 +48,7 @@ jobs:
           rm -rf lib && cp -r /tmp/lib_backup lib
           cp /tmp/pubspec_backup.yaml pubspec.yaml
 
-      - run: flutter pub get
-
-      - name: Create Firebase build defines
+      - name: Generate Firebase configuration source
         env:
           FB_API_KEY: ${{ secrets.FB_API_KEY }}
           FB_APP_ID: ${{ secrets.FB_APP_ID }}
@@ -61,13 +58,22 @@ jobs:
           python3 - <<'PY'
           import json
           import os
-          keys = ["FB_API_KEY", "FB_APP_ID", "FB_PROJECT_ID", "FB_SENDER_ID"]
-          with open("/tmp/firebase-defines.json", "w", encoding="utf-8") as f:
-              json.dump({key: os.environ[key] for key in keys}, f)
+          values = {
+              "firebaseApiKey": os.environ["FB_API_KEY"],
+              "firebaseAppId": os.environ["FB_APP_ID"],
+              "firebaseProjectId": os.environ["FB_PROJECT_ID"],
+              "firebaseSenderId": os.environ["FB_SENDER_ID"],
+          }
+          with open("lib/firebase_build_config.dart", "w", encoding="utf-8") as f:
+              for name, value in values.items():
+                  f.write(f"const {name} = {json.dumps(value)};\\n")
           PY
 
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
       - name: Build release APK
-        run: flutter build apk --release --dart-define-from-file=/tmp/firebase-defines.json
+        run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
         with:
