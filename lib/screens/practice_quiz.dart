@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
 import '../theme.dart';
+import 'ai_teacher.dart';
 
 class PracticeQuestion {
   final String question;
@@ -223,6 +224,23 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(q.explanation),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AiTeacherScreen(
+                              mode: 'explain_question',
+                              question: q.question,
+                              selectedAnswer: q.options[_selected!],
+                              correctAnswer: q.options[q.answer],
+                              explanation: q.explanation,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.smart_toy_outlined),
+                        label: const Text('AI से यह प्रश्न समझें'),
+                      ),
                     ],
                   ),
                 ),
