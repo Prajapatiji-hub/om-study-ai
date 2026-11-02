@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check index.js",
+    "check": "node --check index.js && node --test",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
