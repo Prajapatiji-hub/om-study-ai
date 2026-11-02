@@ -122,9 +122,53 @@ class UserRepo {
     }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
   }
 
+  CollectionReference<Map<String, dynamic>> get _notesCol =>
+      _userDoc.collection('notes');
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> notes() =>
+      _notesCol.orderBy('updatedAt', descending: true).snapshots();
+
+  Future<void> addNote({required String title, required String body}) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanTitle.length > 100) {
+      throw ArgumentError('शीर्षक 1 से 100 अक्षरों के बीच रखें।');
+    }
+    if (cleanBody.isEmpty || cleanBody.length > 20000) {
+      throw ArgumentError('नोट 1 से 20,000 अक्षरों के बीच रखें।');
+    }
+    await _notesCol.add({
+      'title': cleanTitle,
+      'body': cleanBody,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }).timeout(const Duration(seconds: 15));
+  }
+
+  Future<void> updateNote({
+    required String noteId,
+    required String title,
+    required String body,
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanTitle.length > 100) {
+      throw ArgumentError('शीर्षक 1 से 100 अक्षरों के बीच रखें।');
+    }
+    if (cleanBody.isEmpty || cleanBody.length > 20000) {
+      throw ArgumentError('नोट 1 से 20,000 अक्षरों के बीच रखें।');
+    }
+    await _notesCol.doc(noteId).update({
+      'title': cleanTitle,
+      'body': cleanBody,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }).timeout(const Duration(seconds: 15));
+  }
+
+  Future<void> deleteNote(String noteId) =>
+      _notesCol.doc(noteId).delete().timeout(const Duration(seconds: 15));
+
   Future<void> updateProfile(Map<String, dynamic> data) => _userDoc
-      // Add/repair the immutable owner UID when an older profile is first edited.
-      // Merge preserves existing legacy fields and does not replace the document.
       .set({...data, 'uid': uid}, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
 }
