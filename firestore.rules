@@ -63,6 +63,11 @@ service cloud.firestore {
       match /study_plan/{planId} {
         allow read, write: if isOwner(uid);
       }
+
+      // Notes are private to the authenticated owner of this user document.
+      match /notes/{noteId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     match /syllabus_catalog/{docId} {

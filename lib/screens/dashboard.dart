@@ -7,6 +7,7 @@ import 'onboarding.dart';
 import 'profile.dart';
 import 'syllabus.dart';
 import 'study_plan.dart';
+import 'notes.dart';
 
 class Module {
   final String title;
@@ -23,7 +24,7 @@ const kModules = [
   Module('AI टीचर', Icons.smart_toy),
   Module('मेरा स्टडी प्लान', Icons.event_note, ready: true),
   Module('मेरा सिलेबस', Icons.menu_book, ready: true),
-  Module('मेरे नोट्स', Icons.edit_note),
+  Module('मेरे नोट्स', Icons.edit_note, ready: true),
   Module('मेरे वीडियो', Icons.ondemand_video),
   Module('प्रैक्टिस टेस्ट', Icons.quiz),
   Module('मेरी प्रगति', Icons.show_chart),
@@ -48,9 +49,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? SyllabusScreen(repo: widget.repo)
         : (m.title == 'मेरा स्टडी प्लान'
             ? StudyPlanScreen(repo: widget.repo)
-            : (m.ready
+            : (m.title == 'मेरे नोट्स'
+                ? NotesScreen(repo: widget.repo)
+                : (m.ready
                 ? ProfileScreen(repo: widget.repo)
-                : ComingSoonScreen(title: m.title)));
+                : ComingSoonScreen(title: m.title))));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
