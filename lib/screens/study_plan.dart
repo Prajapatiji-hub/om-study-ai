@@ -120,11 +120,11 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       ),
                       const SizedBox(height: 12),
                       LinearProgressIndicator(
-                        value: target == 0 ? 0 : ((done * 30) / target).clamp(0.0, 1.0),
+                        value: tasks.isEmpty ? 0.0 : done / tasks.length,
                         minHeight: 8,
                       ),
                       const SizedBox(height: 6),
-                      Text('${done} काम पूरे · रोज़ का लक्ष्य ${target} मिनट'),
+                      Text('${done} / ${tasks.length} काम पूरे · रोज़ का लक्ष्य ${target} मिनट'),
                     ],
                   ),
                 ),
