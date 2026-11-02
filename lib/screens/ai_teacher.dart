@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/ai_teacher_service.dart';
@@ -29,6 +31,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   final _service = AiTeacherService();
   final List<Map<String, String>> _messages = [];
   bool _sending = false;
+  bool _loadingHistory = true;
   String? _error;
 
   @override
@@ -37,6 +40,85 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
     if (widget.mode == 'explain_question') {
       _controller.text = 'कृपया इस प्रश्न को आसान भाषा में चरण-दर-चरण समझाइए।';
     }
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _loadingHistory = false);
+      return;
+    }
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(40)
+          .get();
+      final restored = snapshot.docs.reversed
+          .map((doc) {
+            final data = doc.data();
+            return <String, String>{
+              'role': data['role'] is String ? data['role'] as String : '',
+              'text': data['text'] is String ? data['text'] as String : '',
+            };
+          })
+          .where((item) =>
+              (item['role'] == 'user' || item['role'] == 'model') &&
+              (item['text'] ?? '').isNotEmpty)
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(restored);
+        _loadingHistory = false;
+      });
+      _scrollToBottom();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingHistory = false;
+        _error = 'पुरानी बातचीत लोड नहीं हो पाई। इंटरनेट जाँचकर फिर खोलें।';
+      });
+    }
+  }
+
+  Future<void> _saveTurn(String userText, String answer) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw StateError('लॉगिन की पुष्टि नहीं हुई।');
+    final collection = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('ai_teacher_messages');
+    final batch = FirebaseFirestore.instance.batch();
+    final userDoc = collection.doc();
+    final modelDoc = collection.doc();
+    batch.set(userDoc, {
+      'role': 'user',
+      'text': userText,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(modelDoc, {
+      'role': 'model',
+      'text': answer,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -48,13 +130,14 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
 
   Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _sending) return;
+    if (text.isEmpty || _sending || _loadingHistory) return;
     setState(() {
       _sending = true;
       _error = null;
       _messages.add({'role': 'user', 'text': text});
     });
     _controller.clear();
+    _scrollToBottom();
 
     try {
       final history = _messages.length > 1
@@ -71,20 +154,22 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
       );
       if (!mounted) return;
       setState(() => _messages.add({'role': 'model', 'text': answer}));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-          );
+      _scrollToBottom();
+      try {
+        await _saveTurn(text, answer);
+      } catch (_) {
+        if (mounted) {
+          setState(() => _error =
+              'जवाब मिल गया, लेकिन बातचीत सेव नहीं हुई। इंटरनेट जाँचें और फिर कोशिश करें।');
         }
-      });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = _friendlyError(e);
-        _messages.removeLast();
+        if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+          _messages.removeLast();
+        }
         _controller.text = text;
       });
     } finally {
@@ -136,64 +221,66 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
                 ),
               ),
             Expanded(
-              child: _messages.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.smart_toy_outlined, size: 58, color: kTeal),
-                            const SizedBox(height: 12),
-                            Text(
-                              explainMode
-                                  ? 'AI इस प्रश्न को चरण-दर-चरण समझाएगा।'
-                                  : 'नमस्ते! मैं आपका AI पढ़ाई साथी हूँ। सवाल पूछिए।',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              child: _loadingHistory
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.smart_toy_outlined, size: 58, color: kTeal),
+                                const SizedBox(height: 12),
+                                Text(
+                                  explainMode
+                                      ? 'AI इस प्रश्न को चरण-दर-चरण समझाएगा।'
+                                      : 'नमस्ते! मैं आपका AI पढ़ाई साथी हूँ। सवाल पूछिए।',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'महत्वपूर्ण परीक्षा या आधिकारिक जानकारी को विश्वसनीय स्रोत से जाँचें।',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'महत्वपूर्ण परीक्षा या आधिकारिक जानकारी को विश्वसनीय स्रोत से जाँचें।',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _messages.length + (_sending ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _messages.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        }
-                        final item = _messages[index];
-                        final isUser = item['role'] == 'user';
-                        return Align(
-                          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 340),
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(13),
-                            decoration: BoxDecoration(
-                              color: isUser ? const Color(0xFFD9EFEB) : Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFD5E0DE)),
-                            ),
-                            child: SelectableText(item['text'] ?? ''),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _messages.length + (_sending ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == _messages.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            final item = _messages[index];
+                            final isUser = item['role'] == 'user';
+                            return Align(
+                              alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Container(
+                                constraints: const BoxConstraints(maxWidth: 340),
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(13),
+                                decoration: BoxDecoration(
+                                  color: isUser ? const Color(0xFFD9EFEB) : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: const Color(0xFFD5E0DE)),
+                                ),
+                                child: SelectableText(item['text'] ?? ''),
+                              ),
+                            );
+                          },
+                        ),
             ),
             if (_error != null)
               Padding(
@@ -220,7 +307,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: _sending ? null : _send,
+                    onPressed: (_sending || _loadingHistory) ? null : _send,
                     icon: const Icon(Icons.send),
                     color: Colors.white,
                     style: IconButton.styleFrom(backgroundColor: kTeal),
