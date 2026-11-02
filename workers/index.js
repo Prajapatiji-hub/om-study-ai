@@ -2,7 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const MODEL = "gemini-3.5-flash-lite";
 const MAX_MESSAGE_CHARS = 4000;
-const MAX_HISTORY_ITEMS = 8;
+const MAX_HISTORY_ITEMS = 6;
 const MAX_QUESTION_CHARS = 3000;
 const MAX_ANSWER_CHARS = 1200;
 const MAX_EXPLANATION_CHARS = 2000;
@@ -118,7 +118,7 @@ export default {
       explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");
       const rawHistory = Array.isArray(data.history) ? data.history : [];
       if (rawHistory.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
-      history = rawHistory.map((item) => {
+      history = rawHistory.slice(-6).map((item) => {
         if (!item || !["user", "model"].includes(item.role)) throw new Error("बातचीत का प्रारूप सही नहीं है।");
         return { role: item.role, parts: [{ text: cleanText(item.text, 1500, "बातचीत का संदेश", true) }] };
       });
@@ -147,7 +147,7 @@ export default {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemInstruction(mode, context) }] },
             contents: [...history, { role: "user", parts: [{ text: message }] }],
-            generationConfig: { temperature: 0.35, maxOutputTokens: 1200 },
+            generationConfig: { temperature: 0.35, maxOutputTokens: 800 },
           }),
         },
       );
