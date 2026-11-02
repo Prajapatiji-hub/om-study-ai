@@ -9,6 +9,7 @@ import 'syllabus.dart';
 import 'study_plan.dart';
 import 'notes.dart';
 import 'practice_quiz.dart';
+import 'quiz_history.dart';
 
 class Module {
   final String title;
@@ -28,7 +29,7 @@ const kModules = [
   Module('मेरे नोट्स', Icons.edit_note, ready: true),
   Module('मेरे वीडियो', Icons.ondemand_video),
   Module('प्रैक्टिस टेस्ट', Icons.quiz, ready: true),
-  Module('मेरी प्रगति', Icons.show_chart),
+  Module('मेरी प्रगति', Icons.show_chart, ready: true),
   Module('मेरी AI मेमोरी', Icons.psychology),
   Module('पढ़ाई के रिमाइंडर', Icons.alarm),
   Module('मेरी प्रोफ़ाइल', Icons.person, ready: true),
@@ -54,9 +55,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? NotesScreen(repo: widget.repo)
                 : (m.title == 'प्रैक्टिस टेस्ट'
                     ? PracticeQuizScreen(repo: widget.repo)
-                    : (m.ready
+                    : (m.title == 'मेरी प्रगति'
+                        ? QuizHistoryScreen(repo: widget.repo)
+                        : (m.ready
                 ? ProfileScreen(repo: widget.repo)
-                : ComingSoonScreen(title: m.title)))));
+                : ComingSoonScreen(title: m.title))))));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
