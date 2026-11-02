@@ -51,13 +51,23 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build release APK
+      - name: Create Firebase build defines
+        env:
+          FB_API_KEY: ${{ secrets.FB_API_KEY }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_PROJECT_ID: ${{ secrets.FB_PROJECT_ID }}
+          FB_SENDER_ID: ${{ secrets.FB_SENDER_ID }}
         run: |
-          flutter build apk --release \
-            --dart-define=FB_API_KEY="$FB_API_KEY" \
-            --dart-define=FB_APP_ID="$FB_APP_ID" \
-            --dart-define=FB_PROJECT_ID="$FB_PROJECT_ID" \
-            --dart-define=FB_SENDER_ID="$FB_SENDER_ID"
+          python3 - <<'PY'
+          import json
+          import os
+          keys = ["FB_API_KEY", "FB_APP_ID", "FB_PROJECT_ID", "FB_SENDER_ID"]
+          with open("/tmp/firebase-defines.json", "w", encoding="utf-8") as f:
+              json.dump({key: os.environ[key] for key in keys}, f)
+          PY
+
+      - name: Build release APK
+        run: flutter build apk --release --dart-define-from-file=/tmp/firebase-defines.json
 
       - uses: actions/upload-artifact@v4
         with:
