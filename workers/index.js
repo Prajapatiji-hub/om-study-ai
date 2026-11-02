@@ -152,22 +152,55 @@ export default {
         },
       );
       if (!response.ok) {
-        const status = response.status;
+        let providerMessage = "";
+        try {
+          const providerBody = await response.json();
+          providerMessage = providerBody?.error?.message || "";
+        } catch (_) {
+          // Do not expose unparseable provider responses.
+        }
+        const failure = classifyProviderError(response.status, providerMessage);
+        console.error("Gemini request rejected", {
+          status: response.status,
+          code: failure.error,
+          model: MODEL,
+        });
         return json({
-          error: status === 429 ? "resource_exhausted" : "provider_unavailable",
-          message: status === 429
-            ? "Gemini की मुफ्त उपयोग सीमा अभी पूरी हुई है। बाद में कोशिश करें।"
-            : "AI से जवाब नहीं मिल पाया। बाद में फिर कोशिश करें।",
-        }, status === 429 ? 429 : 503);
+          error: failure.error,
+          message: failure.message,
+          diagnostic: { provider: "gemini", model: MODEL, code: failure.error },
+        }, failure.httpStatus);
       }
-      const result = await response.json();
-      const answer = result.candidates?.[0]?.content?.parts
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (_) {
+        console.error("Gemini returned invalid JSON", { model: MODEL });
+        return json({ error: "invalid_provider_response", message: "AI से सही जवाब नहीं मिला। फिर कोशिश करें।" }, 503);
+      }
+      const candidate = result.candidates?.[0];
+      const answer = candidate?.content?.parts
         ?.map((part) => typeof part.text === "string" ? part.text : "")
         .join("\n").trim();
-      if (!answer) return json({ error: "empty_answer", message: "AI अभी उपयोगी जवाब नहीं दे पाया।" }, 503);
+      if (!answer) {
+        const blocked = candidate?.finishReason === "SAFETY";
+        console.error("Gemini returned no text", {
+          model: MODEL,
+          finishReason: candidate?.finishReason || "missing_candidate",
+        });
+        return json({
+          error: blocked ? "response_blocked" : "empty_answer",
+          message: blocked
+            ? "यह सवाल सुरक्षा कारणों से जवाब नहीं दे पाया। कृपया सवाल को दूसरे तरीके से पूछें।"
+            : "AI अभी उपयोगी जवाब नहीं दे पाया। फिर कोशिश करें।",
+        }, 503);
+      }
       return json({ answer: answer.slice(0, 12000), model: MODEL, mode });
     } catch (_) {
-      return json({ error: "provider_unavailable", message: "AI सेवा अभी उपलब्ध नहीं है।" }, 503);
+      console.error("Gemini request failed", { model: MODEL, code: "network_or_runtime_error" });
+      return json({ error: "provider_unavailable", message: "AI सेवा से संपर्क नहीं हो पाया। इंटरनेट या सर्वर जाँचकर फिर कोशिश करें।" }, 503);
+    }
     }
   },
 };
