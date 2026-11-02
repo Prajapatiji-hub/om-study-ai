@@ -93,13 +93,25 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   }
 
   String _friendlyError(Object error) {
-    final value = error.toString().toLowerCase();
-    if (value.contains('unauthenticated')) return 'पहले अपने खाते में लॉगिन करें।';
-    if (value.contains('resource-exhausted')) return 'अभी सवालों की सीमा पूरी हुई है। थोड़ी देर बाद कोशिश करें।';
-    if (value.contains('not-found') || value.contains('unavailable')) {
-      return 'AI सेवा अभी तैयार नहीं है या उपलब्ध नहीं है। Backend सेटअप पूरा होने पर फिर कोशिश करें।';
+    final raw = error.toString();
+    final value = raw.toLowerCase();
+    if (value.contains('unauthenticated') || value.contains('पहले लॉगिन')) {
+      return 'पहले अपने खाते में लॉगिन करें।';
     }
-    if (value.contains('network')) return 'इंटरनेट कनेक्शन जाँचकर फिर कोशिश करें।';
+    if (value.contains('resource-exhausted') || value.contains('मुफ्त उपयोग सीमा')) {
+      return 'Gemini की मुफ्त उपयोग सीमा अभी पूरी हुई है। बाद में कोशिश करें।';
+    }
+    if (value.contains('socketexception') || value.contains('network') ||
+        value.contains('failed host lookup')) {
+      return 'इंटरनेट कनेक्शन जाँचकर फिर कोशिश करें।';
+    }
+    if (value.contains('timeoutexception') || value.contains('timed out')) {
+      return 'AI का जवाब आने में अधिक समय लगा। इंटरनेट जाँचकर फिर कोशिश करें।';
+    }
+    if (error is StateError) {
+      final message = error.message.toString().trim();
+      if (message.isNotEmpty) return message;
+    }
     return 'AI जवाब नहीं दे पाया। थोड़ी देर बाद दोबारा कोशिश करें।';
   }
 
