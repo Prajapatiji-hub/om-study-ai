@@ -68,6 +68,11 @@ service cloud.firestore {
       match /notes/{noteId} {
         allow read, write: if isOwner(uid);
       }
+
+      // Quiz attempts and scores are private to each authenticated student.
+      match /quiz_attempts/{attemptId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     match /syllabus_catalog/{docId} {
