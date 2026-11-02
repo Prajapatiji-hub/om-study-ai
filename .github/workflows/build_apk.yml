@@ -30,6 +30,13 @@ jobs:
             fi
           done
 
+      - name: Check AI backend JavaScript syntax
+        run: |
+          cd functions
+          npm install --no-audit --no-fund
+          npm run check
+          cd ..
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
