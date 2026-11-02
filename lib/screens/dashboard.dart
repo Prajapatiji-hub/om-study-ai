@@ -11,6 +11,7 @@ import 'notes.dart';
 import 'practice_quiz.dart';
 import 'quiz_history.dart';
 import 'mistake_review.dart';
+import 'ai_teacher.dart';
 
 class Module {
   final String title;
@@ -24,7 +25,7 @@ const kModules = [
   Module('स्कूल की पढ़ाई', Icons.school, goal: 'school'),
   Module('सरकारी परीक्षा', Icons.account_balance, goal: 'govt'),
   Module('ITI और हुनर', Icons.electrical_services, goal: 'iti'),
-  Module('AI टीचर', Icons.smart_toy),
+  Module('AI टीचर', Icons.smart_toy, ready: true),
   Module('मेरा स्टडी प्लान', Icons.event_note, ready: true),
   Module('मेरा सिलेबस', Icons.menu_book, ready: true),
   Module('मेरे नोट्स', Icons.edit_note, ready: true),
@@ -49,7 +50,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final Future<void> _init = widget.repo.ensureProfile();
 
   void _open(Module m) {
-    final page = m.title == 'मेरा सिलेबस'
+    final page = m.title == 'AI टीचर'
+        ? const AiTeacherScreen()
+        : (m.title == 'मेरा सिलेबस'
         ? SyllabusScreen(repo: widget.repo)
         : (m.title == 'मेरा स्टडी प्लान'
             ? StudyPlanScreen(repo: widget.repo)
@@ -63,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ? MistakeReviewScreen(repo: widget.repo)
                             : (m.ready
                 ? ProfileScreen(repo: widget.repo)
-                : ComingSoonScreen(title: m.title)))))));
+                : ComingSoonScreen(title: m.title))))))));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
