@@ -55,7 +55,9 @@ class UserRepo {
       .timeout(const Duration(seconds: 10));
 
   Future<void> updateProfile(Map<String, dynamic> data) => _userDoc
-      .set(data, SetOptions(merge: true))
+      // Add/repair the immutable owner UID when an older profile is first edited.
+      // Merge preserves existing legacy fields and does not replace the document.
+      .set({...data, 'uid': uid}, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
 }
 
