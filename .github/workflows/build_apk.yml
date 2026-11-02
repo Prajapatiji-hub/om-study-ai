@@ -30,9 +30,9 @@ jobs:
             fi
           done
 
-      - name: Check AI backend JavaScript syntax
+      - name: Check free AI Worker JavaScript
         run: |
-          cd functions
+          cd workers
           npm install --no-audit --no-fund
           npm run check
           cd ..
@@ -73,14 +73,17 @@ jobs:
           }
           with open("lib/firebase_build_config.dart", "w", encoding="utf-8") as f:
               for name, value in values.items():
-                  f.write(f"const {name} = {json.dumps(value)};\n")
+                  f.write(f"const {name} = {json.dumps(value)};\\n")
           PY
 
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          AI_WORKER_URL: ${{ secrets.AI_WORKER_URL }}
+        run: |
+          flutter build apk --release --dart-define=AI_WORKER_URL="$AI_WORKER_URL"
 
       - uses: actions/upload-artifact@v4
         with:
