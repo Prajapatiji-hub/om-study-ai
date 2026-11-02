@@ -1,4 +1,4 @@
-name = "om-study-ai-free"
+name = "om-study-ai"
 main = "index.js"
 compatibility_date = "2026-11-02"
 workers_dev = true
