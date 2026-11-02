@@ -168,6 +168,34 @@ class UserRepo {
   Future<void> deleteNote(String noteId) =>
       _notesCol.doc(noteId).delete().timeout(const Duration(seconds: 15));
 
+  CollectionReference<Map<String, dynamic>> get _quizAttemptsCol =>
+      _userDoc.collection('quiz_attempts');
+
+  Future<void> saveQuizAttempt({
+    required String quizId,
+    required int score,
+    required int total,
+    required List<int> answers,
+  }) async {
+    if (quizId.isEmpty || quizId.length > 80) {
+      throw ArgumentError('टेस्ट की पहचान सही नहीं है।');
+    }
+    if (total < 1 || total > 100 || score < 0 || score > total ||
+        answers.length != total || answers.any((answer) => answer < 0 || answer > 3)) {
+      throw ArgumentError('टेस्ट का परिणाम सही नहीं है।');
+    }
+    await _quizAttemptsCol.add({
+      'quizId': quizId,
+      'score': score,
+      'total': total,
+      'answers': answers,
+      'createdAt': FieldValue.serverTimestamp(),
+    }).timeout(const Duration(seconds: 15));
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> quizAttempts() =>
+      _quizAttemptsCol.orderBy('createdAt', descending: true).limit(50).snapshots();
+
   Future<void> updateProfile(Map<String, dynamic> data) => _userDoc
       .set({...data, 'uid': uid}, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
