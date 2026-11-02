@@ -6,6 +6,7 @@ import 'coming_soon.dart';
 import 'onboarding.dart';
 import 'profile.dart';
 import 'syllabus.dart';
+import 'study_plan.dart';
 
 class Module {
   final String title;
@@ -20,8 +21,8 @@ const kModules = [
   Module('सरकारी परीक्षा', Icons.account_balance, goal: 'govt'),
   Module('ITI और हुनर', Icons.electrical_services, goal: 'iti'),
   Module('AI टीचर', Icons.smart_toy),
-  Module('मेरा स्टडी प्लान', Icons.event_note),
-  Module('मेरा सिलेबस', Icons.menu_book),
+  Module('मेरा स्टडी प्लान', Icons.event_note, ready: true),
+  Module('मेरा सिलेबस', Icons.menu_book, ready: true),
   Module('मेरे नोट्स', Icons.edit_note),
   Module('मेरे वीडियो', Icons.ondemand_video),
   Module('प्रैक्टिस टेस्ट', Icons.quiz),
@@ -45,9 +46,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _open(Module m) {
     final page = m.title == 'मेरा सिलेबस'
         ? SyllabusScreen(repo: widget.repo)
-        : (m.ready
-            ? ProfileScreen(repo: widget.repo)
-            : ComingSoonScreen(title: m.title));
+        : (m.title == 'मेरा स्टडी प्लान'
+            ? StudyPlanScreen(repo: widget.repo)
+            : (m.ready
+                ? ProfileScreen(repo: widget.repo)
+                : ComingSoonScreen(title: m.title)));
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 

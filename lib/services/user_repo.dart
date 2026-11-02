@@ -54,6 +54,74 @@ class UserRepo {
       .set({key: done ? true : FieldValue.delete()}, SetOptions(merge: true))
       .timeout(const Duration(seconds: 10));
 
+  DocumentReference<Map<String, dynamic>> get _studyPlanDoc =>
+      _userDoc.collection('study_plan').doc('current');
+
+  Stream<Map<String, dynamic>> studyPlan() =>
+      _studyPlanDoc.snapshots().map((s) => s.data() ?? {});
+
+  Future<void> addStudyTask(String title) async {
+    final snap = await _studyPlanDoc.get();
+    final data = snap.data() ?? <String, dynamic>{};
+    final raw = data['tasks'];
+    final tasks = raw is List
+        ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        : <Map<String, dynamic>>[];
+    if (tasks.length >= 100) {
+      throw StateError('एक प्लान में अधिकतम 100 काम रख सकते हैं।');
+    }
+    tasks.add({
+      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'title': title,
+      'done': false,
+    });
+    await _studyPlanDoc.set({
+      'dailyMinutes': data['dailyMinutes'] is int ? data['dailyMinutes'] : 120,
+      'tasks': tasks,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> setStudyTarget(int minutes) async {
+    if (![30, 60, 90, 120, 180, 240].contains(minutes)) {
+      throw ArgumentError('अमान्य दैनिक लक्ष्य');
+    }
+    await _studyPlanDoc.set({
+      'dailyMinutes': minutes,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> toggleStudyTask(String id, bool done) async {
+    final snap = await _studyPlanDoc.get();
+    final data = snap.data() ?? <String, dynamic>{};
+    final raw = data['tasks'];
+    final tasks = raw is List
+        ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        : <Map<String, dynamic>>[];
+    final index = tasks.indexWhere((task) => task['id'] == id);
+    if (index < 0) return;
+    tasks[index]['done'] = done;
+    await _studyPlanDoc.set({
+      'tasks': tasks,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> deleteStudyTask(String id) async {
+    final snap = await _studyPlanDoc.get();
+    final data = snap.data() ?? <String, dynamic>{};
+    final raw = data['tasks'];
+    final tasks = raw is List
+        ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        : <Map<String, dynamic>>[];
+    tasks.removeWhere((task) => task['id'] == id);
+    await _studyPlanDoc.set({
+      'tasks': tasks,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+  }
+
   Future<void> updateProfile(Map<String, dynamic> data) => _userDoc
       // Add/repair the immutable owner UID when an older profile is first edited.
       // Merge preserves existing legacy fields and does not replace the document.
