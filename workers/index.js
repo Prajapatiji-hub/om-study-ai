@@ -175,7 +175,7 @@ export default {
             "x-goog-api-key": env.GOOGLE_GENAI_API_KEY,
           },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemInstruction(mode, context) }] },
+            systemInstruction: { parts: [{ text: systemInstruction(mode, personalizedContext) }] },
             contents: [...history, { role: "user", parts: [{ text: message }] }],
             generationConfig: { temperature: 0.35, maxOutputTokens: 800 },
           }),
