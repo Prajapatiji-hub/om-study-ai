@@ -69,7 +69,8 @@ async function verifyFirebaseToken(request, projectId) {
 }
 
 function systemInstruction(mode, personalizedContext) {
-  const language = "सरल, स्वाभाविक हिंदी";
+  const wantsEnglish = /(?:^|\\n)language:\\s*en(?:\\n|$)/i.test(personalizedContext);
+  const language = wantsEnglish ? "सरल, स्वाभाविक English" : "सरल, स्वाभाविक हिंदी";
   const modeInstruction = mode === "generate_quiz"
     ? "केवल वैध JSON में बहुविकल्पीय अभ्यास प्रश्न बनाओ।"
     : mode === "explain_question"
