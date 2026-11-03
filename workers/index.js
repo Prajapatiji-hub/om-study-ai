@@ -142,7 +142,8 @@ export default {
       question = cleanText(data.question, MAX_QUESTION_CHARS, "प्रश्न");
       selectedAnswer = cleanText(data.selectedAnswer, MAX_ANSWER_CHARS, "आपका उत्तर");
       correctAnswer = cleanText(data.correctAnswer, MAX_ANSWER_CHARS, "सही उत्तर");
-      explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");\n      studyMemory = cleanText(data.studyMemory, MAX_STUDY_MEMORY_CHARS, "पढ़ाई की याददाश्त");
+      explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");
+      studyMemory = cleanText(data.studyMemory, MAX_STUDY_MEMORY_CHARS, "पढ़ाई की याददाश्त");
       const rawHistory = Array.isArray(data.history) ? data.history : [];
       if (rawHistory.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
       history = rawHistory.slice(-6).map((item) => {
