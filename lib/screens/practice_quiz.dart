@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/user_repo.dart';
 import '../services/ai_teacher_service.dart';
@@ -71,6 +73,37 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   PracticeQuestion get _current => _activeQuestions[_index];
   bool get _finished => _index >= _activeQuestions.length;
 
+  Future<String> _loadQuizStudyContext() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return '';
+    final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final parts = <String>[];
+    try {
+      final answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
+      for (final key in ['goals','school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','language','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
+        final value = answers[key];
+        if (value is String && value.isNotEmpty && value != '__skipped') parts.add('$key: $value');
+        if (value is List && value.isNotEmpty) parts.add('$key: ${value.join(', ')}');
+      }
+    } catch (_) {}
+    try {
+      final attempts = await root.collection('quiz_attempts').orderBy('createdAt', descending: true).limit(3).get();
+      final mistakes = <String>[];
+      for (final attempt in attempts.docs) {
+        final responses = attempt.data()['responses'];
+        if (responses is! List) continue;
+        for (final raw in responses) {
+          if (raw is Map && raw['selectedIndex'] != raw['correctIndex'] && raw['question'] is String) mistakes.add(raw['question'] as String);
+          if (mistakes.length >= 5) break;
+        }
+        if (mistakes.length >= 5) break;
+      }
+      if (mistakes.isNotEmpty) parts.add('हाल की गलतियाँ: ${mistakes.join(' | ')}');
+    } catch (_) {}
+    final joined = parts.join('\n');
+    return joined.length > 3000 ? joined.substring(0, 3000) : joined;
+  }
+
   Future<void> _generateQuiz() async {
     final topicController = TextEditingController();
     var count = 5;
@@ -80,7 +113,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     if (topic.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पहले विषय लिखें।'))); return; }
     setState(() => _generating = true);
     try {
-      final result = await AiTeacherService().generateQuiz(topic: topic, count: requestedCount);
+      final result = await AiTeacherService().generateQuiz(topic: topic, count: requestedCount, studyMemory: await _loadQuizStudyContext());
       final generated = (result['questions'] as List).map((raw) { final item = Map<String, dynamic>.from(raw as Map); return PracticeQuestion(item['question'] as String, List<String>.from(item['options'] as List), item['answerIndex'] as int, item['explanation'] as String); }).toList();
       if (!mounted) return;
       setState(() { _activeQuestions = generated; _index = 0; _selected = null; _score = 0; _answered = false; _saving = false; _saved = false; _saveError = null; _responses.clear(); _isAiQuiz = true; });
@@ -106,7 +139,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   void _next() {
     if (!_answered) return;
     if (_index == _activeQuestions.length - 1) {
-      setState(() => _index = _questions.length);
+      setState(() => _index = _activeQuestions.length);
       _saveAttempt();
     } else {
       setState(() {
@@ -127,7 +160,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       await widget.repo.saveQuizAttempt(
         quizId: _isAiQuiz ? 'ai_generated_${DateTime.now().millisecondsSinceEpoch}' : 'starter_basics_01',
         score: _score,
-        total: _questions.length,
+        total: _activeQuestions.length,
         responses: List<Map<String, dynamic>>.from(_responses),
       );
       if (mounted) setState(() => _saved = true);
@@ -168,13 +201,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('प्रश्न ${_index + 1} / ${_questions.length}',
+                Text('प्रश्न ${_index + 1} / ${_activeQuestions.length}',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text('सही: $_score'),
               ],
             ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: (_index + 1) / _questions.length),
+            LinearProgressIndicator(value: (_index + 1) / _activeQuestions.length),
             const SizedBox(height: 24),
             Text(q.question,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
@@ -264,7 +297,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             FilledButton(
               onPressed: _answered ? _next : (_selected == null ? null : _checkAnswer),
               child: Text(_answered
-                  ? (_index == _questions.length - 1 ? 'परिणाम देखें' : 'अगला प्रश्न')
+                  ? (_index == _activeQuestions.length - 1 ? 'परिणाम देखें' : 'अगला प्रश्न')
                   : 'उत्तर जाँचें'),
             ),
           ],
@@ -274,7 +307,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   }
 
   Widget _resultPage() {
-    final percent = (_score * 100 / _questions.length).round();
+    final percent = (_score * 100 / _activeQuestions.length).round();
     return Scaffold(
       appBar: AppBar(title: const Text('टेस्ट का परिणाम')),
       body: Center(
@@ -287,7 +320,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             const Text('आपका परिणाम', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('$_score / ${_questions.length} सही • $percent%',
+            Text('$_score / ${_activeQuestions.length} सही • $percent%',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 22)),
             const SizedBox(height: 18),
             if (_saving) const Center(child: CircularProgressIndicator()),
