@@ -52,6 +52,15 @@ jobs:
           cp -r lib /tmp/lib_backup
           cp pubspec.yaml /tmp/pubspec_backup.yaml
           flutter create --platforms=android --org com.omstudy --project-name om_study_ai .
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text(encoding='utf-8')
+          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+          if 'android.permission.RECORD_AUDIO' not in s:
+              s = s.replace('<application', permission + '    <application', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
           rm -rf lib && cp -r /tmp/lib_backup lib
           cp /tmp/pubspec_backup.yaml pubspec.yaml
 
