@@ -66,7 +66,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
     final text=_controller.text.trim();
     if (text.isEmpty || _sending || _legacy) return;
     if (_user==null) { setState(()=>_error='पहले अपने खाते में लॉगिन करें।'); return; }
-    setState(()=>{_sending=true,_error=null});
+    setState(() { _sending = true; _error = null; });
     _controller.clear();
     try {
       final history=<Map<String,String>>[];
@@ -92,11 +92,11 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
       batch.set(_chats.doc(id),{'title':title,'updatedAt':FieldValue.serverTimestamp(),'lastMessageAt':FieldValue.serverTimestamp()},SetOptions(merge:true));
       await batch.commit();
       if (!mounted) return;
-      setState(()=>{_chatId=id,_chatTitle=title});
+      setState(() { _chatId = id; _chatTitle = title; });
       _scrollBottom();
     } catch(e) {
       if (!mounted) return;
-      setState(()=>{_error=_friendlyError(e),_controller.text=text});
+      setState(() { _error = _friendlyError(e); _controller.text = text; });
     } finally { if (mounted) setState(()=>_sending=false); }
   }
 
