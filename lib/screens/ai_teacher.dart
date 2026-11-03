@@ -62,6 +62,56 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
     return clean.length>42 ? clean.substring(0,42)+'…' : clean;
   }
 
+  Future<String> _loadStudyMemory() async {
+    final user = _user;
+    if (user == null) return '';
+    final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final parts = <String>[];
+    try {
+      final answers = (await root.collection('onboarding').doc('answers').get()).data() ?? {};
+      const labels = {
+        'school': 'स्कूल', 'govt': 'सरकारी परीक्षा', 'iti': 'ITI/कौशल',
+        'hi': 'हिंदी', 'en': 'English', 'hinglish': 'Hinglish',
+        'beginner': 'शुरुआती', 'medium': 'मध्यम', 'good': 'अच्छा',
+      };
+      final goals = answers['goals'];
+      if (goals is List && goals.isNotEmpty) {
+        parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v.toString()).join(', ')}');
+      }
+      for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','language','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
+        final value = answers[key];
+        if (value is String && value.isNotEmpty && value != '__skipped') {
+          parts.add('$key: ${labels[value] ?? value}');
+        }
+      }
+    } catch (_) {
+      // Learning context is optional; never block a student's question.
+    }
+    try {
+      final attempts = await root.collection('quiz_attempts')
+          .orderBy('createdAt', descending: true).limit(3).get();
+      final mistakes = <String>[];
+      for (final attempt in attempts.docs) {
+        final responses = attempt.data()['responses'];
+        if (responses is! List) continue;
+        for (final raw in responses) {
+          if (raw is Map && raw['selectedIndex'] != raw['correctIndex'] &&
+              raw['question'] is String) {
+            mistakes.add(raw['question'] as String);
+            if (mistakes.length >= 5) break;
+          }
+        }
+        if (mistakes.length >= 5) break;
+      }
+      if (mistakes.isNotEmpty) {
+        parts.add('हाल के टेस्ट में गलत हुए प्रश्न (इन विषयों को धैर्य से दोहराएँ): ${mistakes.join(' | ')}');
+      }
+    } catch (_) {
+      // Older accounts may not have quiz history or its index yet.
+    }
+    return parts.join('\n').substring(0, parts.join('\n').length > 3000 ? 3000 : parts.join('\n').length);
+  }
+
   Future<void> _send() async {
     final text=_controller.text.trim();
     if (text.isEmpty || _sending || _legacy) return;
@@ -78,7 +128,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
           if ((d['role']=='user'||d['role']=='model') && d['text'] is String) history.add({'role':d['role'] as String,'text':d['text'] as String});
         }
       }
-      final answer=await _service.ask(message:text,mode:widget.mode,question:widget.question,selectedAnswer:widget.selectedAnswer,correctAnswer:widget.correctAnswer,explanation:widget.explanation,history:history);
+      final studyMemory = await _loadStudyMemory();
+      final answer=await _service.ask(message:text,mode:widget.mode,question:widget.question,selectedAnswer:widget.selectedAnswer,correctAnswer:widget.correctAnswer,explanation:widget.explanation,history:history,studyMemory:studyMemory);
       var id=_chatId;
       final title=id==null ? _titleFor(text) : _chatTitle;
       if (id==null) {
