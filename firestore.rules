@@ -76,8 +76,13 @@ service cloud.firestore {
         }
       }
 
-      // Dedicated private area for curated long-term learning memory.
-      match /ai_study_memory/{memoryId} { allow read,write: if isOwner(uid); }
+      // The current app derives study context from onboarding and quiz history.
+      // No client writes to curated memory are implemented yet, so keep writes closed.
+      // Add a field-validated schema here only when the memory editor/storage feature ships.
+      match /ai_study_memory/{memoryId} {
+        allow read: if isOwner(uid);
+        allow create,update,delete: if false;
+      }
     }
 
     match /syllabus_catalog/{docId} { allow read: if signedIn(); allow write: if false; }
