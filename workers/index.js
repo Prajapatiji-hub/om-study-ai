@@ -86,11 +86,11 @@ function systemInstruction(mode, personalizedContext) {
   ].join("\n");
 }
 
-async function runWorkersAiFallback(env, mode, context, history, message) {
+async function runWorkersAiFallback(env, mode, personalizedContext, history, message) {
   if (!env.AI || typeof env.AI.run !== "function") return null;
   try {
     const messages = [
-      { role: "system", content: systemInstruction(mode, context) },
+      { role: "system", content: systemInstruction(mode, personalizedContext) },
       ...history.map((item) => ({
         role: item.role === "model" ? "assistant" : "user",
         content: item.parts.map((part) => part.text).join("\\n"),
@@ -196,7 +196,7 @@ export default {
           model: MODEL,
         });
         if (response.status === 429 || response.status >= 500) {
-          const fallbackAnswer = await runWorkersAiFallback(env, mode, context, history, message);
+          const fallbackAnswer = await runWorkersAiFallback(env, mode, personalizedContext, history, message);
           if (fallbackAnswer) {
             return json({
               answer: fallbackAnswer,
@@ -241,7 +241,7 @@ export default {
       return json({ answer: answer.slice(0, 12000), model: MODEL, mode });
     } catch (_) {
       console.error("Gemini request failed", { model: MODEL, code: "network_or_runtime_error" });
-      const fallbackAnswer = await runWorkersAiFallback(env, mode, context, history, message);
+      const fallbackAnswer = await runWorkersAiFallback(env, mode, personalizedContext, history, message);
       if (fallbackAnswer) {
         return json({
           answer: fallbackAnswer,
