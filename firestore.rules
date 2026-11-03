@@ -1,100 +1,87 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
-    }
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
 
     function validNewProfile(uid) {
-      let d = request.resource.data;
-      return d.keys().hasOnly([
-        'uid', 'displayName', 'email', 'language',
-        'selectedGoals', 'createdAt'
-      ])
-      && d.uid == uid
-      && d.displayName is string
-      && d.displayName.size() > 0
-      && d.displayName.size() <= 80
-      && (!('language' in d) ||
-          d.language in ['hi', 'en', 'hinglish'])
-      && (!('selectedGoals' in d) ||
-          d.selectedGoals is list);
+      let d=request.resource.data;
+      return d.keys().hasOnly(['uid','displayName','email','language','selectedGoals','createdAt'])
+        && d.uid==uid && d.displayName is string && d.displayName.size()>0 && d.displayName.size()<=80
+        && (!('language' in d)||d.language in ['hi','en','hinglish'])
+        && (!('selectedGoals' in d)||d.selectedGoals is list);
     }
-
     function validLegacyProfileUpdate(uid) {
-      let d = request.resource.data;
-      let changed = d.diff(resource.data).affectedKeys();
-      return changed.hasOnly([
-        'uid', 'displayName', 'language', 'selectedGoals'
-      ])
-      && d.uid == uid
-      && (!('displayName' in d) ||
-          (d.displayName is string &&
-           d.displayName.size() > 0 &&
-           d.displayName.size() <= 80))
-      && (!('language' in d) ||
-          d.language in ['hi', 'en', 'hinglish'])
-      && (!('selectedGoals' in d) ||
-          d.selectedGoals is list);
+      let d=request.resource.data;
+      let changed=d.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['uid','displayName','language','selectedGoals']) && d.uid==uid
+        && (!('displayName' in d)||(d.displayName is string&&d.displayName.size()>0&&d.displayName.size()<=80))
+        && (!('language' in d)||d.language in ['hi','en','hinglish'])
+        && (!('selectedGoals' in d)||d.selectedGoals is list);
     }
 
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && validNewProfile(uid);
-      allow update: if isOwner(uid) && validLegacyProfileUpdate(uid);
+      allow create: if isOwner(uid)&&validNewProfile(uid);
+      allow update: if isOwner(uid)&&validLegacyProfileUpdate(uid);
       allow delete: if isOwner(uid);
 
-      match /onboarding/{docId} {
-        allow read, write: if isOwner(uid);
-      }
+      match /onboarding/{docId} { allow read,write: if isOwner(uid); }
+      match /syllabus_progress/{trackId} { allow read,write: if isOwner(uid); }
+      match /study_plan/{planId} { allow read,write: if isOwner(uid); }
+      match /notes/{noteId} { allow read,write: if isOwner(uid); }
+      match /quiz_attempts/{attemptId} { allow read,write: if isOwner(uid); }
 
-      match /syllabus_progress/{trackId} {
-        allow read, write: if isOwner(uid);
-      }
-
-      match /study_plan/{planId} {
-        allow read, write: if isOwner(uid);
-      }
-
-      match /notes/{noteId} {
-        allow read, write: if isOwner(uid);
-      }
-
-      match /quiz_attempts/{attemptId} {
-        allow read, write: if isOwner(uid);
-      }
-
-      // AI Teacher chat history is private to this authenticated student.
+      // Preserve the original flat history as a read-only legacy thread.
       match /ai_teacher_messages/{messageId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid)
-          && request.resource.data.keys().hasOnly(['role', 'text', 'createdAt'])
-          && request.resource.data.role in ['user', 'model']
+          && request.resource.data.keys().hasOnly(['role','text','createdAt'])
+          && request.resource.data.role in ['user','model']
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 4000
-          && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+          && request.resource.data.text.size()>0
+          && request.resource.data.text.size()<=4000
+          && request.resource.data.createdAt==request.time;
+        allow update,delete: if false;
       }
+
+      // Each conversation belongs only to its signed-in owner.
+      match /ai_chats/{chatId} {
+        allow read,delete: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['title','createdAt','updatedAt','lastMessageAt'])
+          && request.resource.data.title is string
+          && request.resource.data.title.size()>0
+          && request.resource.data.title.size()<=80
+          && request.resource.data.createdAt==request.time
+          && request.resource.data.updatedAt==request.time
+          && request.resource.data.lastMessageAt==request.time;
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','updatedAt','lastMessageAt'])
+          && request.resource.data.title is string
+          && request.resource.data.title.size()>0
+          && request.resource.data.title.size()<=80
+          && request.resource.data.updatedAt==request.time
+          && request.resource.data.lastMessageAt==request.time;
+        match /messages/{messageId} {
+          allow read: if isOwner(uid);
+          allow create: if isOwner(uid)
+            && request.resource.data.keys().hasOnly(['role','text','createdAt'])
+            && request.resource.data.role in ['user','model']
+            && request.resource.data.text is string
+            && request.resource.data.text.size()>0
+            && request.resource.data.text.size()<=12000
+            && request.resource.data.createdAt==request.time;
+          allow update,delete: if false;
+        }
+      }
+
+      // Dedicated private area for curated long-term learning memory.
+      match /ai_study_memory/{memoryId} { allow read,write: if isOwner(uid); }
     }
 
-    match /syllabus_catalog/{docId} {
-      allow read: if signedIn();
-      allow write: if false;
-    }
-
-    match /admin_roles/{uid} {
-      allow read: if isOwner(uid);
-      allow write: if false;
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /syllabus_catalog/{docId} { allow read: if signedIn(); allow write: if false; }
+    match /admin_roles/{uid} { allow read: if isOwner(uid); allow write: if false; }
+    match /{document=**} { allow read,write: if false; }
   }
 }
