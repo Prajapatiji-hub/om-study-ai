@@ -14,7 +14,7 @@ class AiTeacherScreen extends StatefulWidget {
   State<AiTeacherScreen> createState() => _AiTeacherScreenState();
 }
 
-class _AiTeacherScreenState extends State<AiTeacherScreen> {
+class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _service = AiTeacherService();
@@ -36,6 +36,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.mode == 'explain_question') _controller.text = 'कृपया इस प्रश्न को आसान भाषा में चरण-दर-चरण समझाइए।';
     _loadVoicePreference();
     _initializeVoice();
@@ -108,7 +109,23 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   }
 
   @override
-  void dispose() { _speech.stop(); _tts.stop(); _controller.dispose(); _scrollController.dispose(); super.dispose(); }
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _speech.stop();
+      _tts.stop();
+      if (mounted) setState(() { _listening = false; _speakingMessage = null; });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _speech.stop();
+    _tts.stop();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   void _newChat() {
     if (_sending) return;
