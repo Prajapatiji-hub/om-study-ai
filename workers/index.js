@@ -165,7 +165,7 @@ export default {
     }
 
     const context = mode === "generate_quiz"
-      ? ["विषय: " + data.topic, "प्रश्नों की संख्या: " + data.count, "हर प्रश्न में question, options (ठीक 4 विकल्प), answerIndex (0-3), explanation और topic हों।", "केवल JSON लौटाओ: {title: string, questions: [{question: string, options: [string,string,string,string], answerIndex: integer, explanation: string, topic: string}]}. यह AI-generated अभ्यास है, आधिकारिक PYQ नहीं।"].join("\n")
+      ? ["विषय: " + data.topic, "प्रश्नों की संख्या: " + data.count, "विद्यार्थी के हाल के गलत उत्तरों को अध्ययन-संकेत मानो: यदि वे इसी विषय या उससे जुड़े आधारभूत कौशल से संबंधित हों, तो प्रश्नों में उन अवधारणाओं का संतुलित पुनराभ्यास शामिल करो। यदि गलतियाँ अलग विषय की हों, तो माँगे गए विषय से न भटको।", "प्रश्न आसान, मध्यम और चुनौतीपूर्ण स्तर में क्रमशः बढ़ें; शुरुआती स्तर के विद्यार्थी के लिए भाषा सरल रखो।", "हर प्रश्न का केवल एक स्पष्ट सही उत्तर हो; विकल्प परस्पर अलग और भ्रामक/दोहराए हुए न हों। सही उत्तर की व्याख्या चरणबद्ध और शिक्षण-केंद्रित हो।", "हर प्रश्न में question, options (ठीक 4 विकल्प), answerIndex (0-3), explanation और topic हों।", "केवल JSON लौटाओ: {title: string, questions: [{question: string, options: [string,string,string,string], answerIndex: integer, explanation: string, topic: string}]}. यह AI-generated अभ्यास है, आधिकारिक PYQ नहीं।"].join("\n")
       : mode === "explain_question"
       ? [
           "प्रश्न: " + (question || "नहीं दिया गया"),
