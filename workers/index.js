@@ -85,6 +85,31 @@ function systemInstruction(mode, context) {
   ].join("\n");
 }
 
+async function runWorkersAiFallback(env, mode, context, history, message) {
+  if (!env.AI || typeof env.AI.run !== "function") return null;
+  try {
+    const messages = [
+      { role: "system", content: systemInstruction(mode, context) },
+      ...history.map((item) => ({
+        role: item.role === "model" ? "assistant" : "user",
+        content: item.parts.map((part) => part.text).join("\\n"),
+      })),
+      { role: "user", content: message },
+    ];
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
+      messages,
+      max_tokens: 800,
+      temperature: 0.35,
+    });
+    const answer = typeof result?.response === "string" ? result.response.trim() : "";
+    if (!answer) return null;
+    return answer.slice(0, 12000);
+  } catch (_) {
+    console.error("Workers AI fallback failed", { provider: "cloudflare_workers_ai" });
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return json({ ok: true });
@@ -165,6 +190,18 @@ export default {
           code: failure.error,
           model: MODEL,
         });
+        if (response.status === 429 || response.status >= 500) {
+          const fallbackAnswer = await runWorkersAiFallback(env, mode, context, history, message);
+          if (fallbackAnswer) {
+            return json({
+              answer: fallbackAnswer,
+              provider: "cloudflare_workers_ai",
+              model: "@cf/meta/llama-3.1-8b-instruct-fp8",
+              fallback: true,
+              mode,
+            });
+          }
+        }
         return json({
           error: failure.error,
           message: failure.message,
@@ -199,6 +236,16 @@ export default {
       return json({ answer: answer.slice(0, 12000), model: MODEL, mode });
     } catch (_) {
       console.error("Gemini request failed", { model: MODEL, code: "network_or_runtime_error" });
+      const fallbackAnswer = await runWorkersAiFallback(env, mode, context, history, message);
+      if (fallbackAnswer) {
+        return json({
+          answer: fallbackAnswer,
+          provider: "cloudflare_workers_ai",
+          model: "@cf/meta/llama-3.1-8b-instruct-fp8",
+          fallback: true,
+          mode,
+        });
+      }
       return json({ error: "provider_unavailable", message: "AI सेवा से संपर्क नहीं हो पाया। इंटरनेट या सर्वर जाँचकर फिर कोशिश करें।" }, 503);
     }
   },
