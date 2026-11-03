@@ -47,8 +47,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   Query<Map<String,dynamic>>? get _messageQuery {
     if (_user==null || _chatId==null) return null;
     return _legacy
-      ? _oldMessages.orderBy('createdAt').limit(300)
-      : _chats.doc(_chatId).collection('messages').orderBy('createdAt').limit(300);
+      ? _oldMessages.orderBy('createdAt', descending:true).limit(300)
+      : _chats.doc(_chatId).collection('messages').orderBy('createdAt', descending:true).limit(300);
   }
 
   void _scrollBottom() {
@@ -206,7 +206,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
           builder:(context,snapshot){
             if(snapshot.hasError)return const Center(child:Text('संदेश लोड नहीं हुए।'));
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
-            final docs=snapshot.data!.docs;
+            final docs=snapshot.data!.docs.reversed.toList();
             if(docs.isEmpty)return _empty(explain);
             return ListView.builder(controller:_scrollController,padding:const EdgeInsets.all(12),itemCount:docs.length+(_sending?1:0),itemBuilder:(context,index){
               if(index==docs.length)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
