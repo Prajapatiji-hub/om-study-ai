@@ -26,6 +26,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   String? _chatId;
   String _chatTitle = 'नई बातचीत';
   bool _legacy = false, _sending = false;
+  int _messageLimit = 50;
   String? _error;
 
   User? get _user => FirebaseAuth.instance.currentUser;
@@ -111,19 +112,19 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
 
   void _newChat() {
     if (_sending) return;
-    setState(() { _chatId=null; _chatTitle='नई बातचीत'; _legacy=false; _error=null; _controller.clear(); });
+    setState(() { _chatId=null; _chatTitle='नई बातचीत'; _legacy=false; _messageLimit=50; _error=null; _controller.clear(); });
   }
 
   void _openChat(String id, String title, {bool legacy=false}) {
     if (_sending) return;
-    setState(() { _chatId=id; _chatTitle=title; _legacy=legacy; _error=null; _controller.clear(); });
+    setState(() { _chatId=id; _chatTitle=title; _legacy=legacy; _messageLimit=50; _error=null; _controller.clear(); });
   }
 
   Query<Map<String,dynamic>>? get _messageQuery {
     if (_user==null || _chatId==null) return null;
     return _legacy
-      ? _oldMessages.orderBy('createdAt', descending:true).limit(300)
-      : _chats.doc(_chatId).collection('messages').orderBy('createdAt', descending:true).limit(300);
+      ? _oldMessages.orderBy('createdAt', descending:true).limit(_messageLimit)
+      : _chats.doc(_chatId).collection('messages').orderBy('createdAt', descending:true).limit(_messageLimit);
   }
 
   void _scrollBottom() {
@@ -285,9 +286,11 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
             final docs=snapshot.data!.docs.reversed.toList();
             if(docs.isEmpty)return _empty(explain);
-            return ListView.builder(controller:_scrollController,padding:const EdgeInsets.all(12),itemCount:docs.length+(_sending?1:0),itemBuilder:(context,index){
-              if(index==docs.length)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
-              final item=docs[index].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
+            return ListView.builder(controller:_scrollController,padding:const EdgeInsets.all(12),itemCount:docs.length+1+(_sending?1:0),itemBuilder:(context,index){
+              if(index==0 && docs.length >= _messageLimit) return Align(alignment:Alignment.center,child:TextButton.icon(onPressed:(){setState(()=>_messageLimit+=50);},icon:const Icon(Icons.expand_less),label:const Text('पुराने संदेश लोड करें')));
+              if(index==0) return const SizedBox.shrink();
+              if(index==docs.length+1)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
+              final item=docs[index-1].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
               return Align(
                 alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
