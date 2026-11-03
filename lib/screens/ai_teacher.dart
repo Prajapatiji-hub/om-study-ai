@@ -266,8 +266,42 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
             return ListView.builder(controller:_scrollController,padding:const EdgeInsets.all(12),itemCount:docs.length+(_sending?1:0),itemBuilder:(context,index){
               if(index==docs.length)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
               final item=docs[index].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
-              return Align(alignment:isUser?Alignment.centerRight:Alignment.centerLeft,child:Container(constraints:const BoxConstraints(maxWidth:340),margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.all(13),
-                decoration:BoxDecoration(color:isUser?const Color(0xFFD9EFEB):Colors.white,borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFD5E0DE))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[SelectableText(message),if(!isUser) Align(alignment:Alignment.centerRight,child:IconButton(tooltip:_speakingMessage==message?'आवाज़ रोकें':'जवाब सुनें',visualDensity:VisualDensity.compact,onPressed:()=>_speakAnswer(message),icon:Icon(_speakingMessage==message?Icons.stop_circle_outlined:Icons.volume_up_outlined,color:kTeal))))])));
+              return Align(
+                alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: isUser ? const Color(0xFFD9EFEB) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFD5E0DE)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(message),
+                      if (!isUser)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            tooltip: _speakingMessage == message
+                                ? 'आवाज़ रोकें'
+                                : 'जवाब सुनें',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _speakAnswer(message),
+                            icon: Icon(
+                              _speakingMessage == message
+                                  ? Icons.stop_circle_outlined
+                                  : Icons.volume_up_outlined,
+                              color: kTeal,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
             });
           })),
         if(_legacy) const Padding(padding:EdgeInsets.all(8),child:Text('यह पुरानी सुरक्षित बातचीत है। आगे के सवाल के लिए नई चैट शुरू करें।',style:TextStyle(color:Colors.black54))),
