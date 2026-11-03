@@ -174,7 +174,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','language','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
         final value = answers[key];
         if (value is String && value.isNotEmpty && value != '__skipped') {
-          parts.add('$key: ${labels[value] ?? value}');
+          if (key == 'language') {
+            // Keep the stable locale code for the Worker language selector.
+            parts.add('language: $value (${labels[value] ?? value})');
+          } else {
+            parts.add('$key: ${labels[value] ?? value}');
+          }
         }
       }
     } catch (_) {
