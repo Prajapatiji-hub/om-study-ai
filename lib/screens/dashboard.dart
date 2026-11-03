@@ -98,7 +98,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final shown = kModules
                 .where((m) => m.goal == null || goals.isEmpty || goals.contains(m.goal))
                 .toList();
-            return Scaffold(
+            return StreamBuilder<Map<String, dynamic>>(
+              stream: widget.repo.answers(),
+              builder: (context, setupSnap) {
+                if (setupSnap.hasData && setupSnap.data?['_setupRequired'] == true) {
+                  return OnboardingScreen(repo: widget.repo, requiredForNewAccount: true);
+                }
+                return Scaffold(
               appBar: AppBar(title: const Text('OM STUDY AI')),
               body: SafeArea(
                 child: ListView(
@@ -168,6 +174,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
+                );
+              },
             );
           },
         );
