@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../services/ai_teacher_service.dart';
 import '../theme.dart';
@@ -16,6 +18,10 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _service = AiTeacherService();
+  final FlutterTts _tts = FlutterTts();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechReady = false, _listening = false;
+  String? _speakingMessage;
   String? _chatId;
   String _chatTitle = 'नई बातचीत';
   bool _legacy = false, _sending = false;
@@ -29,10 +35,59 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   void initState() {
     super.initState();
     if (widget.mode == 'explain_question') _controller.text = 'कृपया इस प्रश्न को आसान भाषा में चरण-दर-चरण समझाइए।';
+    _initializeVoice();
+  }
+
+  Future<void> _initializeVoice() async {
+    try {
+      await _tts.setSpeechRate(0.48);
+      await _tts.setPitch(1.0);
+      _speechReady = await _speech.initialize(
+        onStatus: (status) { if (!mounted) return; setState(() => _listening = status == 'listening'); },
+        onError: (error) { if (!mounted) return; setState(() { _listening = false; _error = 'आवाज़ पहचानने में समस्या हुई। कृपया दोबारा कोशिश करें।'; }); },
+      );
+      if (mounted) setState(() {});
+    } catch (_) {
+      _speechReady = false;
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (_listening) { await _speech.stop(); if (mounted) setState(() => _listening = false); return; }
+    if (!_speechReady) await _initializeVoice();
+    if (!_speechReady) { if (mounted) setState(() => _error = 'इस फोन में Speech Recognition उपलब्ध नहीं है।'); return; }
+    try {
+      await _speech.listen(
+        onResult: (result) { if (!mounted) return; setState(() => _controller.text = result.recognizedWords); },
+        listenFor: const Duration(seconds: 45),
+        pauseFor: const Duration(seconds: 4),
+        partialResults: true,
+      );
+      if (mounted) setState(() { _listening = true; _error = null; });
+    } catch (_) {
+      if (mounted) setState(() { _listening = false; _error = 'माइक्रोफ़ोन शुरू नहीं हो पाया। अनुमति जाँचें।'; });
+    }
+  }
+
+  Future<void> _speakAnswer(String message) async {
+    try {
+      if (_speakingMessage == message) {
+        await _tts.stop();
+        if (mounted) setState(() => _speakingMessage = null);
+        return;
+      }
+      await _tts.stop();
+      if (mounted) setState(() => _speakingMessage = message);
+      await _tts.setLanguage('hi-IN');
+      await _tts.speak(message);
+      if (mounted) setState(() => _speakingMessage = null);
+    } catch (_) {
+      if (mounted) setState(() { _speakingMessage = null; _error = 'इस भाषा में आवाज़ उपलब्ध नहीं है।'; });
+    }
   }
 
   @override
-  void dispose() { _controller.dispose(); _scrollController.dispose(); super.dispose(); }
+  void dispose() { _speech.stop(); _tts.stop(); _controller.dispose(); _scrollController.dispose(); super.dispose(); }
 
   void _newChat() {
     if (_sending) return;
@@ -212,13 +267,14 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
               if(index==docs.length)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
               final item=docs[index].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
               return Align(alignment:isUser?Alignment.centerRight:Alignment.centerLeft,child:Container(constraints:const BoxConstraints(maxWidth:340),margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.all(13),
-                decoration:BoxDecoration(color:isUser?const Color(0xFFD9EFEB):Colors.white,borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFD5E0DE))),child:SelectableText(message)));
+                decoration:BoxDecoration(color:isUser?const Color(0xFFD9EFEB):Colors.white,borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFD5E0DE))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[SelectableText(message),if(!isUser) Align(alignment:Alignment.centerRight,child:IconButton(tooltip:_speakingMessage==message?'आवाज़ रोकें':'जवाब सुनें',visualDensity:VisualDensity.compact,onPressed:()=>_speakAnswer(message),icon:Icon(_speakingMessage==message?Icons.stop_circle_outlined:Icons.volume_up_outlined,color:kTeal))))])));
             });
           })),
         if(_legacy) const Padding(padding:EdgeInsets.all(8),child:Text('यह पुरानी सुरक्षित बातचीत है। आगे के सवाल के लिए नई चैट शुरू करें।',style:TextStyle(color:Colors.black54))),
         if(_error!=null) Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:4),child:Text(_error!,style:const TextStyle(color:Colors.red))),
         Padding(padding:const EdgeInsets.fromLTRB(12,8,12,12),child:Row(children:[
-          Expanded(child:TextField(controller:_controller,enabled:!_legacy,minLines:1,maxLines:4,maxLength:4000,decoration:InputDecoration(hintText:_legacy?'पुरानी चैट केवल पढ़ने के लिए है':'अपना सवाल लिखें…',counterText:'',border:const OutlineInputBorder()),onSubmitted:(_)=>_send())),
+          IconButton(tooltip:_listening?'सुनना बंद करें':'बोलकर सवाल पूछें',onPressed:(_legacy||_sending)?null:_toggleListening,icon:Icon(_listening?Icons.mic:Icons.mic_none,color:_listening?Colors.red:kTeal)),
+          Expanded(child:TextField(controller:_controller,enabled:!_legacy,minLines:1,maxLines:4,maxLength:4000,decoration:InputDecoration(hintText:_legacy?'पुरानी चैट केवल पढ़ने के लिए है':_listening?'बोलिए…':'अपना सवाल लिखें…',counterText:'',border:const OutlineInputBorder()),onSubmitted:(_)=>_send())),
           const SizedBox(width:8),
           IconButton.filled(onPressed:(_sending||_legacy)?null:_send,icon:const Icon(Icons.send),color:Colors.white,style:IconButton.styleFrom(backgroundColor:kTeal)),
         ])),
