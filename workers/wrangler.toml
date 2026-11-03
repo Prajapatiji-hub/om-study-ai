@@ -5,3 +5,6 @@ workers_dev = true
 
 [vars]
 FIREBASE_PROJECT_ID = "prajapati-507d7"
+
+[ai]
+binding = "AI"
