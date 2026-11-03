@@ -27,7 +27,20 @@ class UserRepo {
         'selectedGoals': <String>[],
         'createdAt': FieldValue.serverTimestamp(),
       });
+      // Only profiles created from this point forward are required to complete setup.
+      // Existing accounts are deliberately left untouched.
+      await _answersDoc.set({
+        '_setupRequired': true,
+        '_setupCreatedAt': FieldValue.serverTimestamp(),
+      });
     }
+  }
+
+  Future<void> completeRequiredSetup() async {
+    await _answersDoc.set({
+      '_setupRequired': false,
+      '_setupCompletedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
   }
 
   Stream<Map<String, dynamic>> profile() =>

@@ -96,7 +96,8 @@ List<Q> visibleQuestions(Map<String, dynamic> a) =>
 class OnboardingScreen extends StatefulWidget {
   final UserRepo repo;
   final bool edit; // true = start from first question to change answers
-  const OnboardingScreen({super.key, required this.repo, this.edit = false});
+  final bool requiredForNewAccount;
+  const OnboardingScreen({super.key, required this.repo, this.edit = false, this.requiredForNewAccount = false});
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
@@ -174,15 +175,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
     final v = visibleQuestions(_answers);
     final finished = _idx >= v.length;
-    return Scaffold(
-      appBar: AppBar(title: const Text('आपकी पढ़ाई का सेटअप')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: finished ? _done() : _question(v[_idx], v.length),
+    return PopScope(
+      canPop: !widget.requiredForNewAccount,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('आपकी पढ़ाई का सेटअप')),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: finished ? _done() : _question(v[_idx], v.length),
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _finishSetup() async {
+    setState(() { _saving = true; _error = null; });
+    try {
+      await widget.repo.completeRequiredSetup();
+      if (mounted && !widget.requiredForNewAccount) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'सेटअप पूरा नहीं हो सका। इंटरनेट जाँचकर फिर कोशिश करें।');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Widget _done() => Column(
@@ -198,8 +214,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text('जवाब कभी भी प्रोफ़ाइल से बदल सकते हैं।',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 17)),
           const SizedBox(height: 24),
+          if (_error != null) Text(_error!, style: const TextStyle(color: kError)),
           FilledButton(
-              onPressed: () => Navigator.pop(context), child: const Text('डैशबोर्ड पर जाएँ')),
+              onPressed: _saving ? null : _finishSetup,
+              child: _saving ? const CircularProgressIndicator() : const Text('डैशबोर्ड पर जाएँ')),
         ],
       );
 
