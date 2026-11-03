@@ -16,6 +16,8 @@ class AiTeacherService {
     String explanation = '',
     List<Map<String, String>> history = const [],
     String studyMemory = '',
+    String topic = '',
+    int quizCount = 5,
   }) async {
     if (_workerUrl.isEmpty || !_workerUrl.startsWith('https://')) {
       throw StateError('AI backend का Free setup अभी पूरा नहीं हुआ है।');
