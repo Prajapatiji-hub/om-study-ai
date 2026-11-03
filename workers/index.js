@@ -5,7 +5,8 @@ const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_ITEMS = 6;
 const MAX_QUESTION_CHARS = 3000;
 const MAX_ANSWER_CHARS = 1200;
-const MAX_EXPLANATION_CHARS = 2000;\nconst MAX_STUDY_MEMORY_CHARS = 3000;
+const MAX_EXPLANATION_CHARS = 2000;
+const MAX_STUDY_MEMORY_CHARS = 3000;
 const GOOGLE_KEYS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
 );
