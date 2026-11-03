@@ -5,7 +5,7 @@ const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_ITEMS = 6;
 const MAX_QUESTION_CHARS = 3000;
 const MAX_ANSWER_CHARS = 1200;
-const MAX_EXPLANATION_CHARS = 2000;
+const MAX_EXPLANATION_CHARS = 2000;\nconst MAX_STUDY_MEMORY_CHARS = 3000;
 const GOOGLE_KEYS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
 );
@@ -66,7 +66,7 @@ async function verifyFirebaseToken(request, projectId) {
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("UNAUTHENTICATED");
 }
 
-function systemInstruction(mode, context) {
+function systemInstruction(mode, personalizedContext) {
   const language = "सरल, स्वाभाविक हिंदी";
   const modeInstruction = mode === "explain_question"
     ? "विद्यार्थी के दिए प्रश्न को ध्यान से समझो। पहले बताओ कि प्रश्न क्या पूछ रहा है, फिर छोटे चरणों में हल समझाओ, सही उत्तर का कारण और आम गलती बताओ। प्रश्न अधूरा हो तो अनुमान लगाने के बजाय स्पष्टता माँगो।"
@@ -133,14 +133,14 @@ export default {
       return json({ error: "invalid_json", message: "भेजा गया डेटा सही नहीं है।" }, 400);
     }
 
-    let mode, message, question, selectedAnswer, correctAnswer, explanation, history;
+    let mode, message, question, selectedAnswer, correctAnswer, explanation, history, studyMemory;
     try {
       mode = data.mode === "explain_question" ? "explain_question" : "tutor";
       message = cleanText(data.message, MAX_MESSAGE_CHARS, "सवाल", true);
       question = cleanText(data.question, MAX_QUESTION_CHARS, "प्रश्न");
       selectedAnswer = cleanText(data.selectedAnswer, MAX_ANSWER_CHARS, "आपका उत्तर");
       correctAnswer = cleanText(data.correctAnswer, MAX_ANSWER_CHARS, "सही उत्तर");
-      explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");
+      explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");\n      studyMemory = cleanText(data.studyMemory, MAX_STUDY_MEMORY_CHARS, "पढ़ाई की याददाश्त");
       const rawHistory = Array.isArray(data.history) ? data.history : [];
       if (rawHistory.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
       history = rawHistory.slice(-6).map((item) => {
@@ -158,7 +158,7 @@ export default {
           "सत्यापित सही उत्तर: " + (correctAnswer || "नहीं दिया गया"),
           "उपलब्ध स्पष्टीकरण: " + (explanation || "नहीं दिया गया"),
         ].join("\n")
-      : "यह सामान्य ट्यूटर बातचीत है।";
+      : "यह सामान्य ट्यूटर बातचीत है।";\n    const personalizedContext = [context, studyMemory ? "विद्यार्थी की पढ़ाई की पृष्ठभूमि:\\n" + studyMemory : ""].filter(Boolean).join("\\n\\n");
 
     try {
       const response = await fetch(
