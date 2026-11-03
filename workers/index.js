@@ -7,6 +7,7 @@ const MAX_QUESTION_CHARS = 3000;
 const MAX_ANSWER_CHARS = 1200;
 const MAX_EXPLANATION_CHARS = 2000;
 const MAX_STUDY_MEMORY_CHARS = 3000;
+const MAX_QUIZ_TOPIC_CHARS = 120;
 const GOOGLE_KEYS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
 );
@@ -69,7 +70,9 @@ async function verifyFirebaseToken(request, projectId) {
 
 function systemInstruction(mode, personalizedContext) {
   const language = "सरल, स्वाभाविक हिंदी";
-  const modeInstruction = mode === "explain_question"
+  const modeInstruction = mode === "generate_quiz"
+    ? "केवल वैध JSON में बहुविकल्पीय अभ्यास प्रश्न बनाओ।"
+    : mode === "explain_question"
     ? "विद्यार्थी के दिए प्रश्न को ध्यान से समझो। पहले बताओ कि प्रश्न क्या पूछ रहा है, फिर छोटे चरणों में हल समझाओ, सही उत्तर का कारण और आम गलती बताओ। प्रश्न अधूरा हो तो अनुमान लगाने के बजाय स्पष्टता माँगो।"
     : "एक धैर्यवान व्यक्तिगत शिक्षक की तरह उत्तर दो। सरल उदाहरण दो, छोटे चरणों में समझाओ और अंत में एक छोटा जाँच-प्रश्न पूछो।";
   return [
@@ -137,13 +140,18 @@ export default {
 
     let mode, message, question, selectedAnswer, correctAnswer, explanation, history, studyMemory;
     try {
-      mode = data.mode === "explain_question" ? "explain_question" : "tutor";
+      mode = ["explain_question", "generate_quiz"].includes(data.mode) ? data.mode : "tutor";
       message = cleanText(data.message, MAX_MESSAGE_CHARS, "सवाल", true);
       question = cleanText(data.question, MAX_QUESTION_CHARS, "प्रश्न");
       selectedAnswer = cleanText(data.selectedAnswer, MAX_ANSWER_CHARS, "आपका उत्तर");
       correctAnswer = cleanText(data.correctAnswer, MAX_ANSWER_CHARS, "सही उत्तर");
       explanation = cleanText(data.explanation, MAX_EXPLANATION_CHARS, "पहले से दिया हल");
       studyMemory = cleanText(data.studyMemory, MAX_STUDY_MEMORY_CHARS, "पढ़ाई की याददाश्त");
+      if (mode === "generate_quiz") {
+        data.topic = cleanText(data.topic, MAX_QUIZ_TOPIC_CHARS, "विषय", true);
+        data.count = Number(data.count);
+        if (!Number.isInteger(data.count) || data.count < 3 || data.count > 15) throw new Error("प्रश्नों की संख्या 3 से 15 के बीच रखें।");
+      }
       const rawHistory = Array.isArray(data.history) ? data.history : [];
       if (rawHistory.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
       history = rawHistory.slice(-6).map((item) => {
@@ -154,7 +162,9 @@ export default {
       return json({ error: "invalid_argument", message: error.message }, 400);
     }
 
-    const context = mode === "explain_question"
+    const context = mode === "generate_quiz"
+      ? ["विषय: " + data.topic, "प्रश्नों की संख्या: " + data.count, "हर प्रश्न में question, options (ठीक 4 विकल्प), answerIndex (0-3), explanation और topic हों।", "केवल JSON लौटाओ: {title: string, questions: [{question: string, options: [string,string,string,string], answerIndex: integer, explanation: string, topic: string}]}. यह AI-generated अभ्यास है, आधिकारिक PYQ नहीं।"].join("\n")
+      : mode === "explain_question"
       ? [
           "प्रश्न: " + (question || "नहीं दिया गया"),
           "विद्यार्थी का चुना उत्तर: " + (selectedAnswer || "नहीं दिया गया"),
@@ -179,7 +189,7 @@ export default {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemInstruction(mode, personalizedContext) }] },
             contents: [...history, { role: "user", parts: [{ text: message }] }],
-            generationConfig: { temperature: 0.35, maxOutputTokens: 800 },
+            generationConfig: mode === "generate_quiz" ? { temperature: 0.25, maxOutputTokens: 3000, responseMimeType: "application/json" } : { temperature: 0.35, maxOutputTokens: 800 },
           }),
         },
       );
@@ -239,6 +249,14 @@ export default {
             ? "यह सवाल सुरक्षा कारणों से जवाब नहीं दे पाया। कृपया सवाल को दूसरे तरीके से पूछें।"
             : "AI अभी उपयोगी जवाब नहीं दे पाया। फिर कोशिश करें।",
         }, 503);
+      }
+      if (mode === "generate_quiz") {
+        let quiz;
+        try { quiz = JSON.parse(answer); } catch (_) { return json({ error: "invalid_quiz_json", message: "AI ने प्रश्न सही प्रारूप में नहीं बनाए। फिर कोशिश करें।" }, 503); }
+        const qs = quiz?.questions;
+        const valid = quiz && typeof quiz.title === "string" && Array.isArray(qs) && qs.length === data.count && qs.every((q) => q && typeof q.question === "string" && q.question.length > 0 && q.question.length <= 1000 && Array.isArray(q.options) && q.options.length === 4 && q.options.every((v) => typeof v === "string" && v.length > 0 && v.length <= 300) && Number.isInteger(q.answerIndex) && q.answerIndex >= 0 && q.answerIndex < 4 && typeof q.explanation === "string" && q.explanation.length <= 2000 && typeof q.topic === "string" && q.topic.length <= 120);
+        if (!valid) return json({ error: "invalid_quiz_schema", message: "AI प्रश्नों की जाँच पूरी नहीं हुई। फिर कोशिश करें।" }, 503);
+        return json({ quiz: { title: quiz.title.slice(0, 100), questions: qs }, provider: "gemini", model: MODEL, mode });
       }
       return json({ answer: answer.slice(0, 12000), model: MODEL, mode });
     } catch (_) {
