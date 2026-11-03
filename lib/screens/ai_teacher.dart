@@ -21,6 +21,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   final FlutterTts _tts = FlutterTts();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechReady = false, _listening = false;
+  String _voiceLocale = 'hi-IN';
   String? _speakingMessage;
   String? _chatId;
   String _chatTitle = 'नई बातचीत';
@@ -35,7 +36,21 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
   void initState() {
     super.initState();
     if (widget.mode == 'explain_question') _controller.text = 'कृपया इस प्रश्न को आसान भाषा में चरण-दर-चरण समझाइए।';
+    _loadVoicePreference();
     _initializeVoice();
+  }
+
+  Future<void> _loadVoicePreference() async {
+    try {
+      final user = _user;
+      if (user == null) return;
+      final data = (await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('onboarding').doc('answers').get()).data() ?? {};
+      final language = data['language'];
+      final locale = language == 'en' ? 'en-US' : 'hi-IN';
+      if (mounted) setState(() => _voiceLocale = locale);
+    } catch (_) {
+      // Keep Hindi as the safe default when no preference is saved.
+    }
   }
 
   Future<void> _initializeVoice() async {
@@ -62,6 +77,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
         listenFor: const Duration(seconds: 45),
         pauseFor: const Duration(seconds: 4),
         partialResults: true,
+        localeId: _voiceLocale,
       );
       if (mounted) setState(() { _listening = true; _error = null; });
     } catch (_) {
@@ -78,7 +94,11 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
       }
       await _tts.stop();
       if (mounted) setState(() => _speakingMessage = message);
-      await _tts.setLanguage('hi-IN');
+      try {
+        await _tts.setLanguage(_voiceLocale);
+      } catch (_) {
+        await _tts.setLanguage('en-US');
+      }
       await _tts.speak(message);
       if (mounted) setState(() => _speakingMessage = null);
     } catch (_) {
@@ -171,7 +191,9 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
     final text=_controller.text.trim();
     if (text.isEmpty || _sending || _legacy) return;
     if (_user==null) { setState(()=>_error='पहले अपने खाते में लॉगिन करें।'); return; }
-    setState(() { _sending = true; _error = null; });
+    if (_listening) { await _speech.stop(); }
+    if (_speakingMessage != null) { await _tts.stop(); }
+    setState(() { _sending = true; _error = null; _listening = false; _speakingMessage = null; });
     _controller.clear();
     try {
       final history=<Map<String,String>>[];
