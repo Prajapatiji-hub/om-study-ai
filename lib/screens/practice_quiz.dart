@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
+import '../services/ai_teacher_service.dart';
 import '../theme.dart';
 import 'ai_teacher.dart';
 
@@ -63,9 +64,29 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   bool _saved = false;
   String? _saveError;
   final List<Map<String, dynamic>> _responses = [];
+  List<PracticeQuestion> _activeQuestions = List<PracticeQuestion>.from(_questions);
+  bool _generating = false;
+  bool _isAiQuiz = false;
 
-  PracticeQuestion get _current => _questions[_index];
-  bool get _finished => _index >= _questions.length;
+  PracticeQuestion get _current => _activeQuestions[_index];
+  bool get _finished => _index >= _activeQuestions.length;
+
+  Future<void> _generateQuiz() async {
+    final topicController = TextEditingController();
+    var count = 5;
+    final request = await showDialog<Map<String, dynamic>>(context: context, builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('AI से नया टेस्ट बनाएँ'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: topicController, maxLength: 120, decoration: const InputDecoration(labelText: 'विषय / टॉपिक', hintText: 'जैसे: Ohm का नियम')), const SizedBox(height: 8), DropdownButtonFormField<int>(value: count, decoration: const InputDecoration(labelText: 'प्रश्नों की संख्या'), items: [3, 5, 10, 15].map((n) => DropdownMenuItem(value: n, child: Text('$n प्रश्न'))).toList(), onChanged: (v) { if (v != null) setDialogState(() => count = v); })]), actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('रद्द करें')), FilledButton(onPressed: () => Navigator.pop(dialogContext, {'topic': topicController.text.trim(), 'count': count}), child: const Text('बनाएँ'))])));
+    if (request == null) { topicController.dispose(); return; }
+    final topic = request['topic'] as String; final requestedCount = request['count'] as int; topicController.dispose();
+    if (topic.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पहले विषय लिखें।'))); return; }
+    setState(() => _generating = true);
+    try {
+      final result = await AiTeacherService().generateQuiz(topic: topic, count: requestedCount);
+      final generated = (result['questions'] as List).map((raw) { final item = Map<String, dynamic>.from(raw as Map); return PracticeQuestion(item['question'] as String, List<String>.from(item['options'] as List), item['answerIndex'] as int, item['explanation'] as String); }).toList();
+      if (!mounted) return;
+      setState(() { _activeQuestions = generated; _index = 0; _selected = null; _score = 0; _answered = false; _saving = false; _saved = false; _saveError = null; _responses.clear(); _isAiQuiz = true; });
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI टेस्ट नहीं बन पाया: $e'))); }
+    finally { if (mounted) setState(() => _generating = false); }
+  }
 
   void _checkAnswer() {
     if (_selected == null || _answered) return;
@@ -84,7 +105,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
 
   void _next() {
     if (!_answered) return;
-    if (_index == _questions.length - 1) {
+    if (_index == _activeQuestions.length - 1) {
       setState(() => _index = _questions.length);
       _saveAttempt();
     } else {
@@ -104,7 +125,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     });
     try {
       await widget.repo.saveQuizAttempt(
-        quizId: 'starter_basics_01',
+        quizId: _isAiQuiz ? 'ai_generated_${DateTime.now().millisecondsSinceEpoch}' : 'starter_basics_01',
         score: _score,
         total: _questions.length,
         responses: List<Map<String, dynamic>>.from(_responses),
@@ -120,6 +141,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   void _restart() {
     setState(() {
       _index = 0;
+      _activeQuestions = List<PracticeQuestion>.from(_questions);
+      _isAiQuiz = false;
       _selected = null;
       _score = 0;
       _answered = false;
@@ -140,15 +163,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'शुरुआती अभ्यास सेट • 5 प्रश्न\nये अभ्यास के लिए बनाए गए नमूना प्रश्न हैं, आधिकारिक PYQ नहीं।',
-                  style: TextStyle(fontSize: 15),
-                ),
-              ),
-            ),
+            Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_isAiQuiz ? 'AI-generated अभ्यास • आधिकारिक PYQ नहीं' : 'शुरुआती अभ्यास सेट • नमूना प्रश्न, आधिकारिक PYQ नहीं', style: const TextStyle(fontSize: 15)), const SizedBox(height: 10), OutlinedButton.icon(onPressed: _generating ? null : _generateQuiz, icon: _generating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome), label: Text(_generating ? 'AI प्रश्न बना रहा है…' : 'AI से विषयवार टेस्ट बनाएँ'))]))),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
