@@ -26,7 +26,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
   String? _chatId;
   String _chatTitle = 'नई बातचीत';
   bool _legacy = false, _sending = false;
-  int _messageLimit = 50;
+  bool _loadingOlder = false, _hasMoreOlder = true;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _olderDocs = [];
   String? _error;
 
   User? get _user => FirebaseAuth.instance.currentUser;
@@ -129,19 +130,106 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
 
   void _newChat() {
     if (_sending) return;
-    setState(() { _chatId=null; _chatTitle='नई बातचीत'; _legacy=false; _messageLimit=50; _error=null; _controller.clear(); });
+    setState(() {
+      _chatId = null;
+      _chatTitle = 'नई बातचीत';
+      _legacy = false;
+      _olderDocs.clear();
+      _loadingOlder = false;
+      _hasMoreOlder = true;
+      _error = null;
+      _controller.clear();
+    });
   }
 
   void _openChat(String id, String title, {bool legacy=false}) {
     if (_sending) return;
-    setState(() { _chatId=id; _chatTitle=title; _legacy=legacy; _messageLimit=50; _error=null; _controller.clear(); });
+    setState(() {
+      _chatId = id;
+      _chatTitle = title;
+      _legacy = legacy;
+      _olderDocs.clear();
+      _loadingOlder = false;
+      _hasMoreOlder = true;
+      _error = null;
+      _controller.clear();
+    });
   }
 
-  Query<Map<String,dynamic>>? get _messageQuery {
-    if (_user==null || _chatId==null) return null;
-    return _legacy
-      ? _oldMessages.orderBy('createdAt', descending:true).limit(_messageLimit)
-      : _chats.doc(_chatId).collection('messages').orderBy('createdAt', descending:true).limit(_messageLimit);
+  Query<Map<String, dynamic>>? get _messageQuery {
+    if (_user == null || _chatId == null) return null;
+    final collection = _legacy
+        ? _oldMessages
+        : _chats.doc(_chatId).collection('messages');
+    // Document ID is a deterministic tie-breaker for equal server timestamps.
+    return collection
+        .orderBy('createdAt', descending: true)
+        .orderBy(FieldPath.documentId, descending: true)
+        .limit(50);
+  }
+
+  Future<void> _loadOlder(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> liveDocs,
+  ) async {
+    if (_loadingOlder || !_hasMoreOlder || _chatId == null || _user == null) {
+      return;
+    }
+    final requestedChatId = _chatId;
+    final requestedLegacy = _legacy;
+    final currentOffset = _scrollController.hasClients
+        ? _scrollController.position.pixels
+        : 0.0;
+    final currentMax = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    final cursor = _olderDocs.isNotEmpty
+        ? _olderDocs.last
+        : (liveDocs.isNotEmpty ? liveDocs.last : null);
+    if (cursor == null) {
+      if (mounted) setState(() => _hasMoreOlder = false);
+      return;
+    }
+
+    setState(() {
+      _loadingOlder = true;
+      _error = null;
+    });
+    try {
+      final collection = requestedLegacy
+          ? _oldMessages
+          : _chats.doc(requestedChatId).collection('messages');
+      final page = await collection
+          .orderBy('createdAt', descending: true)
+          .orderBy(FieldPath.documentId, descending: true)
+          .startAfterDocument(cursor)
+          .limit(50)
+          .get();
+
+      if (!mounted || _chatId != requestedChatId || _legacy != requestedLegacy) {
+        return;
+      }
+      setState(() {
+        // Each new page is older than all pages already loaded.
+        _olderDocs.insertAll(0, page.docs);
+        _hasMoreOlder = page.docs.length == 50;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        final addedExtent =
+            _scrollController.position.maxScrollExtent - currentMax;
+        final target = (currentOffset + addedExtent)
+            .clamp(0.0, _scrollController.position.maxScrollExtent);
+        _scrollController.jumpTo(target);
+      });
+    } catch (_) {
+      if (mounted && _chatId == requestedChatId) {
+        setState(() => _error = 'पुराने संदेश लोड नहीं हुए। फिर कोशिश करें।');
+      }
+    } finally {
+      if (mounted && _chatId == requestedChatId) {
+        setState(() => _loadingOlder = false);
+      }
+    }
   }
 
   void _scrollBottom() {
@@ -306,13 +394,51 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           builder:(context,snapshot){
             if(snapshot.hasError)return const Center(child:Text('संदेश लोड नहीं हुए।'));
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
-            final docs=snapshot.data!.docs.reversed.toList();
-            if(docs.isEmpty)return _empty(explain);
-            return ListView.builder(controller:_scrollController,padding:const EdgeInsets.all(12),itemCount:docs.length+1+(_sending?1:0),itemBuilder:(context,index){
-              if(index==0 && docs.length >= _messageLimit) return Align(alignment:Alignment.center,child:TextButton.icon(onPressed:(){setState(()=>_messageLimit+=50);},icon:const Icon(Icons.expand_less),label:const Text('पुराने संदेश लोड करें')));
-              if(index==0) return const SizedBox.shrink();
-              if(index==docs.length+1)return const Padding(padding:EdgeInsets.all(12),child:Align(alignment:Alignment.centerLeft,child:CircularProgressIndicator()));
-              final item=docs[index-1].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
+            final descendingDocs = [
+              ..._olderDocs,
+              ...snapshot.data!.docs,
+            ];
+            final docs = descendingDocs.reversed.toList();
+            if (docs.isEmpty) return _empty(explain);
+            final showLoadOlder =
+                _hasMoreOlder && (snapshot.data!.docs.length == 50 || _olderDocs.isNotEmpty);
+            final extraItems = 1 + (showLoadOlder ? 1 : 0) + (_sending ? 1 : 0);
+            return ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(12),
+              itemCount: docs.length + extraItems,
+              itemBuilder: (context, index) {
+              if (showLoadOlder && index == 0) {
+                return Align(
+                  alignment: Alignment.center,
+                  child: TextButton.icon(
+                    onPressed: _loadingOlder
+                        ? null
+                        : () => _loadOlder(snapshot.data!.docs),
+                    icon: _loadingOlder
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.expand_less),
+                    label: Text(_loadingOlder ? 'लोड हो रहा है…' : 'पुराने संदेश लोड करें'),
+                  ),
+                );
+              }
+              final contentIndex = index - (showLoadOlder ? 1 : 0);
+              if (contentIndex == docs.length) {
+                return _sending
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    : const SizedBox.shrink();
+              }
+              final item=docs[contentIndex].data(); final isUser=item['role']=='user'; final message=item['text'] is String ? item['text'] as String : '';
               return Align(
                 alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
@@ -349,7 +475,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
                   ),
                 ),
               );
-            });
+            );
           })),
         if(_legacy) const Padding(padding:EdgeInsets.all(8),child:Text('यह पुरानी सुरक्षित बातचीत है। आगे के सवाल के लिए नई चैट शुरू करें।',style:TextStyle(color:Colors.black54))),
         if(_error!=null) Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:4),child:Text(_error!,style:const TextStyle(color:Colors.red))),
