@@ -99,7 +99,7 @@ async function runWorkersAiFallback(env, mode, personalizedContext, history, mes
       { role: "system", content: systemInstruction(mode, personalizedContext) },
       ...history.map((item) => ({
         role: item.role === "model" ? "assistant" : "user",
-        content: item.parts.map((part) => part.text).join("\\n"),
+        content: item.parts.map((part) => part.text).join("\n"),
       })),
       { role: "user", content: message },
     ];
