@@ -100,6 +100,51 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       }
       if (mistakes.isNotEmpty) parts.add('हाल की गलतियाँ: ${mistakes.join(' | ')}');
     } catch (_) {}
+    // Use a bounded sample of the student's earlier AI Teacher questions
+    // so generated practice can revisit concepts they have already asked about.
+    try {
+      final chats = await root.collection('ai_chats')
+          .orderBy('updatedAt', descending: true)
+          .limit(3)
+          .get();
+      final qa = <String>[];
+      for (final chat in chats.docs) {
+        final messages = await chat.reference.collection('messages')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get();
+        for (final doc in messages.docs.reversed) {
+          final data = doc.data();
+          final role = data['role'];
+          final text = data['text'];
+          if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
+            final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+            qa.add('\${role == 'user' ? 'विद्यार्थी का सवाल' : 'AI शिक्षक का जवाब'}: \${clean.length > 220 ? '\${clean.substring(0, 220)}…' : clean}');
+          }
+        }
+        if (qa.length >= 6) break;
+      }
+      if (qa.isNotEmpty) parts.add('हाल की AI Teacher बातचीत (इन्हीं अवधारणाओं का उपयोगी पुनराभ्यास करें): \${qa.take(6).join(' | ')}');
+    } catch (_) {
+      // AI chat context is optional; quiz generation can use available records.
+    }
+    try {
+      final legacy = await root.collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(3)
+          .get();
+      final qa = legacy.docs.reversed.map((doc) {
+        final data = doc.data();
+        final role = data['role'];
+        final text = data['text'];
+        if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
+        final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+        return '\${role == 'user' ? 'पुराना विद्यार्थी सवाल' : 'पुराना AI जवाब'}: \${clean.length > 180 ? '\${clean.substring(0, 180)}…' : clean}';
+      }).where((line) => line.isNotEmpty).toList();
+      if (qa.isNotEmpty) parts.add('पुरानी सुरक्षित बातचीत: \${qa.join(' | ')}');
+    } catch (_) {
+      // Legacy history may not exist.
+    }
     final joined = parts.join('\n');
     return joined.length > 3000 ? joined.substring(0, 3000) : joined;
   }
