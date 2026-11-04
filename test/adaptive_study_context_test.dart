@@ -43,6 +43,23 @@ void main() {
       expect(context.length, lessThanOrEqualTo(3000));
     });
 
+    test('ignores malformed answer indexes when ranking weak topics', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'responses': [
+              {'question': 'Malformed', 'topic': 'Unknown', 'selectedIndex': null, 'correctIndex': null},
+              {'question': 'Valid wrong', 'topic': 'Physics', 'selectedIndex': 1, 'correctIndex': 2},
+            ],
+          },
+        ],
+      );
+
+      expect(context, contains('Physics (1 गलत उत्तर)'));
+      expect(context, isNot(contains('Unknown')));
+    });
+
     test('returns an empty context when no learner history exists', () {
       expect(
         buildAdaptiveQuizContext(setupAnswers: {}, quizAttempts: []),
