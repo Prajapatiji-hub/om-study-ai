@@ -10,6 +10,10 @@ void main() {
       expect(shouldStopVoiceForLifecycleState(AppLifecycleState.detached), isTrue);
     });
 
+    test('stops voice when app is hidden', () {
+      expect(shouldStopVoiceForLifecycleState(AppLifecycleState.hidden), isTrue);
+    });
+
     test('does not stop voice when app is resumed', () {
       expect(shouldStopVoiceForLifecycleState(AppLifecycleState.resumed), isFalse);
     });
