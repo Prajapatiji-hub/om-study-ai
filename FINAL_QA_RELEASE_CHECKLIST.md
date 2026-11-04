@@ -12,14 +12,12 @@
 ## 1. Release status snapshot
 
 Latest reviewed source snapshot (4 November 2026; update after each candidate build):
-- PR #21 (required signup Study Setup) remains open and Draft; PR #22 (AI chat sessions) remains open and Draft, stacked on PR #21's feature branch.
-- Build #117 completed successfully for commit `08f8ea8`; its non-expired `om-study-ai-apk` artifact was confirmed. This is not a phone-test pass.
-- The current chat source uses ordered cursor pagination with `startAfterDocument`, a document-ID tie-breaker, and a separate live newest-message stream. The 120+ message device test is still NOT TESTED.
-- AI context is assembled from per-user onboarding, recent quiz attempts, current/legacy chat records. It is not yet a complete editable, durable AI memory system.
-- The next candidate adds quiz-question topic persistence and ranks weak topics from recent wrong answers. Its CI/build result must be recorded separately; do not mark adaptive behavior PASS until the latest candidate workflow succeeds and on-device behavior is checked.
-- AI image generation, final consolidated Firestore Rules publication, Worker deployment, final main-branch APK, and complete physical-device acceptance remain release-gate items.
-
-Update this snapshot when the branch/build state changes.
+- PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. Do not merge either PR as part of this workflow.
+- Build #133 succeeded for commit `e7a8fc2bcc72d52d07f8b58a90ee62546659a792`; the non-expired `om-study-ai-apk` artifact (25.92 MB) was confirmed. SHA-256: `4ce6bdd85d98911b59b15bc5549014018b6eacd260eafe44020a95080a6def41`. This is CI evidence, not physical-device acceptance.
+- Adaptive quiz context and weak-topic ranking are implemented; automated coverage exists in `test/adaptive_study_context_test.dart`. Device behavior remains NOT TESTED.
+- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. The next candidate adds pure validator tests and a field-validated owner-only Rules source update. Rules are source-only and NOT published or emulator-tested.
+- Signup setup gating is wired through Dashboard's `_setupRequired` marker; test fresh signup, resume after force-close, and existing-account preservation on a physical device.
+- Worker deployment, live Firestore Rules publication, final main-branch APK, and complete physical-device acceptance remain release gates.
 
 ## 2. Build, source and dependency checks
 

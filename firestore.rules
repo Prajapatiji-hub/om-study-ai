@@ -76,12 +76,37 @@ service cloud.firestore {
         }
       }
 
-      // The current app derives study context from onboarding and quiz history.
-      // No client writes to curated memory are implemented yet, so keep writes closed.
-      // Add a field-validated schema here only when the memory editor/storage feature ships.
+      function validMemoryTopics(items) {
+        return items is list && items.size() <= 12
+          && (items.size() < 1 || (items[0] is string && items[0].size() <= 60))
+          && (items.size() < 2 || (items[1] is string && items[1].size() <= 60))
+          && (items.size() < 3 || (items[2] is string && items[2].size() <= 60))
+          && (items.size() < 4 || (items[3] is string && items[3].size() <= 60))
+          && (items.size() < 5 || (items[4] is string && items[4].size() <= 60))
+          && (items.size() < 6 || (items[5] is string && items[5].size() <= 60))
+          && (items.size() < 7 || (items[6] is string && items[6].size() <= 60))
+          && (items.size() < 8 || (items[7] is string && items[7].size() <= 60))
+          && (items.size() < 9 || (items[8] is string && items[8].size() <= 60))
+          && (items.size() < 10 || (items[9] is string && items[9].size() <= 60))
+          && (items.size() < 11 || (items[10] is string && items[10].size() <= 60))
+          && (items.size() < 12 || (items[11] is string && items[11].size() <= 60));
+      }
+      function validStudyMemory() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['summary','strengths','weakTopics','preferredStyle','updatedAt'])
+          && d.keys().hasAll(['summary','strengths','weakTopics','preferredStyle','updatedAt'])
+          && d.summary is string && d.summary.size() <= 2000
+          && validMemoryTopics(d.strengths)
+          && validMemoryTopics(d.weakTopics)
+          && d.preferredStyle is string && d.preferredStyle.size() <= 300
+          && d.updatedAt == request.time;
+      }
+
+      // Editable curated memory: owner-only, bounded fields and server timestamp.
       match /ai_study_memory/{memoryId} {
-        allow read: if isOwner(uid);
-        allow create,update,delete: if false;
+        allow read: if isOwner(uid) && memoryId == 'profile';
+        allow create,update: if isOwner(uid) && memoryId == 'profile' && validStudyMemory();
+        allow delete: if false;
       }
     }
 

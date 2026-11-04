@@ -23,6 +23,16 @@ This document is an execution order that complements `FINAL_QA_RELEASE_CHECKLIST
 
 ## B. Ordered execution sequence
 
+### B1a. AI Study Memory validation and Rules review (P0)
+
+- [ ] Run `test/study_memory_validator_test.dart`: trimming, blank removal, de-duplication, exact maximum lengths, over-limit rejection, and 12-topic boundary.
+- [ ] Confirm Profile writes only `users/{uid}/ai_study_memory/profile` and AI Teacher reads only the signed-in user's document.
+- [ ] Review the consolidated source Rules: fixed document ID, owner-only read/create/update, exact allowed fields, bounded summary/style/topic lists, server timestamp, no client delete, and catch-all deny.
+- [ ] Run Firebase Emulator Rules tests before any production publication. Current source-only Rules changes are NOT live and NOT emulator-tested.
+- [ ] Verify save/reload on two disposable accounts after owner-approved Rules publication; account B must not read account A memory.
+
+## B. Ordered execution sequence
+
 ### B1. Source and build baseline (P0)
 
 - [ ] Run formatter check and static analysis on the exact candidate commit.
