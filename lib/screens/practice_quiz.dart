@@ -119,12 +119,12 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
           final text = data['text'];
           if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
             final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-            qa.add('\${role == 'user' ? 'विद्यार्थी का सवाल' : 'AI शिक्षक का जवाब'}: \${clean.length > 220 ? '\${clean.substring(0, 220)}…' : clean}');
+            qa.add('${role == 'user' ? 'विद्यार्थी का सवाल' : 'AI शिक्षक का जवाब'}: ${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}');
           }
         }
         if (qa.length >= 6) break;
       }
-      if (qa.isNotEmpty) parts.add('हाल की AI Teacher बातचीत (इन्हीं अवधारणाओं का उपयोगी पुनराभ्यास करें): \${qa.take(6).join(' | ')}');
+      if (qa.isNotEmpty) parts.add('हाल की AI Teacher बातचीत (इन्हीं अवधारणाओं का उपयोगी पुनराभ्यास करें): ${qa.take(6).join(' | ')}');
     } catch (_) {
       // AI chat context is optional; quiz generation can use available records.
     }
@@ -139,9 +139,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         final text = data['text'];
         if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
         final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-        return '\${role == 'user' ? 'पुराना विद्यार्थी सवाल' : 'पुराना AI जवाब'}: \${clean.length > 180 ? '\${clean.substring(0, 180)}…' : clean}';
+        return '${role == 'user' ? 'पुराना विद्यार्थी सवाल' : 'पुराना AI जवाब'}: ${clean.length > 180 ? '${clean.substring(0, 180)}…' : clean}';
       }).where((line) => line.isNotEmpty).toList();
-      if (qa.isNotEmpty) parts.add('पुरानी सुरक्षित बातचीत: \${qa.join(' | ')}');
+      if (qa.isNotEmpty) parts.add('पुरानी सुरक्षित बातचीत: ${qa.join(' | ')}');
     } catch (_) {
       // Legacy history may not exist.
     }
