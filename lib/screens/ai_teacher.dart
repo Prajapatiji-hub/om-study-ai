@@ -475,7 +475,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
                   ),
                 ),
               );
-            );
+            });
           })),
         if(_legacy) const Padding(padding:EdgeInsets.all(8),child:Text('यह पुरानी सुरक्षित बातचीत है। आगे के सवाल के लिए नई चैट शुरू करें।',style:TextStyle(color:Colors.black54))),
         if(_error!=null) Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:4),child:Text(_error!,style:const TextStyle(color:Colors.red))),
