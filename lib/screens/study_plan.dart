@@ -124,7 +124,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                         minHeight: 8,
                       ),
                       const SizedBox(height: 6),
-                      Text('${done} / ${tasks.length} काम पूरे · रोज़ का लक्ष्य ${target} मिनट'),
+                      Text('$done / ${tasks.length} काम पूरे · रोज़ का लक्ष्य $target मिनट'),
                     ],
                   ),
                 ),
