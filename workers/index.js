@@ -66,6 +66,35 @@ async function verifyFirebaseToken(request, projectId) {
     audience: projectId,
   });
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("UNAUTHENTICATED");
+  return payload.sub;
+}
+
+
+export async function checkUserRateLimit(binding, userId) {
+  if (!binding || typeof binding.limit !== "function" || !userId) return { allowed: false, configured: false };
+  try {
+    const result = await binding.limit({ key: userId });
+    return { allowed: result?.success === true, configured: true };
+  } catch (_) { return { allowed: false, configured: false }; }
+}
+
+export function isValidQuizResponse(quiz, expectedCount) {
+  const questions = quiz?.questions;
+  return Boolean(quiz && typeof quiz.title === "string" && quiz.title.trim().length > 0 &&
+    quiz.title.length <= 100 && Array.isArray(questions) && questions.length === expectedCount &&
+    questions.every((q) => q && typeof q.question === "string" && q.question.trim().length > 0 &&
+      q.question.length <= 1000 && Array.isArray(q.options) && q.options.length === 4 &&
+      q.options.every((v) => typeof v === "string" && v.trim().length > 0 && v.length <= 300) &&
+      new Set(q.options).size === 4 && Number.isInteger(q.answerIndex) && q.answerIndex >= 0 &&
+      q.answerIndex < 4 && typeof q.explanation === "string" && q.explanation.length <= MAX_EXPLANATION_CHARS &&
+      typeof q.topic === "string" && q.topic.trim().length > 0 && q.topic.length <= MAX_QUIZ_TOPIC_CHARS));
+}
+
+export async function readJsonRequest(request, maxBytes = 16000) {
+  const raw = await request.text();
+  if (raw.length > maxBytes) return { error: "request_too_large", status: 413 };
+  try { return { data: JSON.parse(raw) }; }
+  catch (_) { return { error: "invalid_json", status: 400 }; }
 }
 
 function systemInstruction(mode, personalizedContext) {
@@ -126,19 +155,14 @@ export default {
     }
 
     try {
-      await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
+      var authenticatedUserId = await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
     } catch (_) {
       return json({ error: "unauthenticated", message: "AI टीचर इस्तेमाल करने के लिए पहले लॉगिन करें।" }, 401);
     }
 
-    let data;
-    try {
-      const raw = await request.text();
-      if (raw.length > 16000) return json({ error: "request_too_large" }, 413);
-      data = JSON.parse(raw);
-    } catch (_) {
-      return json({ error: "invalid_json", message: "भेजा गया डेटा सही नहीं है।" }, 400);
-    }
+    const parsedBody = await readJsonRequest(request);
+    if (parsedBody.error) return json({ error: parsedBody.error, message: parsedBody.error === "request_too_large" ? "अनुरोध बहुत बड़ा है।" : "भेजा गया डेटा सही नहीं है।" }, parsedBody.status);
+    const data = parsedBody.data;
 
     let mode, message, question, selectedAnswer, correctAnswer, explanation, history, studyMemory;
     try {
@@ -163,6 +187,14 @@ export default {
     } catch (error) {
       return json({ error: "invalid_argument", message: error.message }, 400);
     }
+
+    const limiter = mode === "generate_quiz" ? env.AI_QUIZ_RATE_LIMITER : env.AI_RATE_LIMITER;
+    const rateDecision = await checkUserRateLimit(limiter, authenticatedUserId);
+    if (!rateDecision.configured) {
+      console.error("AI rate limiter unavailable", { mode });
+      return json({ error: "rate_limit_unavailable", message: "AI सेवा की सुरक्षा जाँच अभी उपलब्ध नहीं है। बाद में कोशिश करें।" }, 503);
+    }
+    if (!rateDecision.allowed) return json({ error: "rate_limited", message: "आपने थोड़े समय में बहुत अनुरोध किए हैं। एक मिनट बाद फिर कोशिश करें।" }, 429);
 
     const context = mode === "generate_quiz"
       ? ["विषय: " + data.topic, "प्रश्नों की संख्या: " + data.count, "विद्यार्थी के हाल के गलत उत्तरों को अध्ययन-संकेत मानो: यदि वे इसी विषय या उससे जुड़े आधारभूत कौशल से संबंधित हों, तो प्रश्नों में उन अवधारणाओं का संतुलित पुनराभ्यास शामिल करो। यदि गलतियाँ अलग विषय की हों, तो माँगे गए विषय से न भटको।", "प्रश्न आसान, मध्यम और चुनौतीपूर्ण स्तर में क्रमशः बढ़ें; शुरुआती स्तर के विद्यार्थी के लिए भाषा सरल रखो।", "हर प्रश्न का केवल एक स्पष्ट सही उत्तर हो; विकल्प परस्पर अलग और भ्रामक/दोहराए हुए न हों। सही उत्तर की व्याख्या चरणबद्ध और शिक्षण-केंद्रित हो।", "हर प्रश्न में question, options (ठीक 4 विकल्प), answerIndex (0-3), explanation और topic हों।", "केवल JSON लौटाओ: {title: string, questions: [{question: string, options: [string,string,string,string], answerIndex: integer, explanation: string, topic: string}]}. यह AI-generated अभ्यास है, आधिकारिक PYQ नहीं।"].join("\n")
@@ -255,10 +287,8 @@ export default {
       if (mode === "generate_quiz") {
         let quiz;
         try { quiz = JSON.parse(answer); } catch (_) { return json({ error: "invalid_quiz_json", message: "AI ने प्रश्न सही प्रारूप में नहीं बनाए। फिर कोशिश करें।" }, 503); }
-        const qs = quiz?.questions;
-        const valid = quiz && typeof quiz.title === "string" && Array.isArray(qs) && qs.length === data.count && qs.every((q) => q && typeof q.question === "string" && q.question.length > 0 && q.question.length <= 1000 && Array.isArray(q.options) && q.options.length === 4 && q.options.every((v) => typeof v === "string" && v.length > 0 && v.length <= 300) && Number.isInteger(q.answerIndex) && q.answerIndex >= 0 && q.answerIndex < 4 && typeof q.explanation === "string" && q.explanation.length <= 2000 && typeof q.topic === "string" && q.topic.length <= 120);
-        if (!valid) return json({ error: "invalid_quiz_schema", message: "AI प्रश्नों की जाँच पूरी नहीं हुई। फिर कोशिश करें।" }, 503);
-        return json({ quiz: { title: quiz.title.slice(0, 100), questions: qs }, provider: "gemini", model: MODEL, mode });
+        if (!isValidQuizResponse(quiz, data.count)) return json({ error: "invalid_quiz_schema", message: "AI प्रश्नों की जाँच पूरी नहीं हुई। फिर कोशिश करें।" }, 503);
+        return json({ quiz: { title: quiz.title.trim(), questions: quiz.questions }, provider: "gemini", model: MODEL, mode });
       }
       return json({ answer: answer.slice(0, 12000), model: MODEL, mode });
     } catch (_) {
