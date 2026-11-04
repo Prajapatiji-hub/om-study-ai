@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
@@ -97,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: const InputDecoration(labelText: 'आपका नाम')),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: _lang,
+                  initialValue: _lang,
                   decoration: const InputDecoration(labelText: 'पसंदीदा भाषा'),
                   items: const [
                     DropdownMenuItem(value: 'hi', child: Text('हिंदी')),
