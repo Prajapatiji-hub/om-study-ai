@@ -39,6 +39,7 @@ jobs:
           cd workers
           npm install --no-audit --no-fund
           npm run check
+          npx wrangler deploy --dry-run --outdir /tmp/om-study-ai-worker-dry-run
           cd ..
 
       - uses: actions/setup-java@v4

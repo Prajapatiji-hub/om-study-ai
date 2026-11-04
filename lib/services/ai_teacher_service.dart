@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import 'ai_service_error.dart';
+
 class AiTeacherService {
   static const String _workerUrl =
       String.fromEnvironment('AI_WORKER_URL', defaultValue: '');
@@ -62,19 +64,12 @@ class AiTeacherService {
       // Use the friendly fallback below for a non-JSON response.
     }
 
-    if (response.statusCode == 401) {
-      throw StateError('लॉगिन की पुष्टि नहीं हुई। दोबारा लॉगिन करें।');
-    }
-    if (response.statusCode == 429) {
-      throw StateError(data['error'] == 'rate_limited'
-          ? 'आपने थोड़े समय में बहुत अनुरोध किए हैं। एक मिनट बाद फिर कोशिश करें।'
-          : 'AI की उपयोग सीमा अभी पूरी हुई है। बाद में कोशिश करें।');
-    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = data['message'];
-      throw StateError(message is String
-          ? message
-          : 'AI सेवा अभी उपलब्ध नहीं है। बाद में कोशिश करें।');
+      throw StateError(aiServiceErrorMessage(
+        statusCode: response.statusCode,
+        errorCode: data['error'] is String ? data['error'] as String : null,
+        serverMessage: data['message'] is String ? data['message'] as String : null,
+      ));
     }
     if (data['answer'] is! String) {
       throw StateError('AI से सही जवाब नहीं मिला।');
@@ -114,8 +109,12 @@ class AiTeacherService {
       if (decoded is Map<String, dynamic>) data = decoded;
     } catch (_) {}
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = data['message'];
-      throw StateError(message is String ? message : 'AI प्रश्न अभी नहीं बना पाया।');
+      throw StateError(aiServiceErrorMessage(
+        statusCode: response.statusCode,
+        errorCode: data['error'] is String ? data['error'] as String : null,
+        serverMessage: data['message'] is String ? data['message'] as String : null,
+        quiz: true,
+      ));
     }
     final quiz = data['quiz'];
     if (quiz is! Map<String, dynamic> || quiz['questions'] is! List ||

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyProviderError } from "./index.js";
+import Worker, { classifyProviderError } from "./index.js";
 
 test("Gemini quota errors stay distinguishable", () => {
   const result = classifyProviderError(429, "RESOURCE_EXHAUSTED");
@@ -62,4 +62,33 @@ test("quiz schema accepts valid quizzes and rejects invalid counts, duplicate op
   const invalidIndex = validQuestion(); invalidIndex.answerIndex = 4;
   assert.equal(isValidQuizResponse({ title: "Math", questions: [invalidIndex] }, 1), false);
   assert.equal(isValidQuizResponse({ title: " ", questions: [validQuestion()] }, 1), false);
+});
+
+test("Worker rejects requests with no Firebase bearer token", async () => {
+  const response = await Worker.fetch(
+    new Request("https://worker.example.test", { method: "POST", body: JSON.stringify({ message: "hello" }) }),
+    { FIREBASE_PROJECT_ID: "test-project", GOOGLE_GENAI_API_KEY: "test-only" },
+  );
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "unauthenticated");
+});
+
+test("Worker rejects malformed Firebase bearer tokens", async () => {
+  const response = await Worker.fetch(
+    new Request("https://worker.example.test", {
+      method: "POST",
+      headers: { Authorization: "Bearer not-a-valid-jwt" },
+      body: JSON.stringify({ message: "hello" }),
+    }),
+    { FIREBASE_PROJECT_ID: "test-project", GOOGLE_GENAI_API_KEY: "test-only" },
+  );
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "unauthenticated");
+});
+
+test("Worker handles OPTIONS and unsupported methods without authentication", async () => {
+  const options = await Worker.fetch(new Request("https://worker.example.test", { method: "OPTIONS" }), {});
+  const get = await Worker.fetch(new Request("https://worker.example.test", { method: "GET" }), {});
+  assert.equal(options.status, 200);
+  assert.equal(get.status, 405);
 });
