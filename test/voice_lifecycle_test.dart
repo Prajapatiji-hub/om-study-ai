@@ -17,5 +17,15 @@ void main() {
     test('does not stop voice when app is resumed', () {
       expect(shouldStopVoiceForLifecycleState(AppLifecycleState.resumed), isFalse);
     });
+  group('canStartVoiceForLifecycleState', () {
+    test('allows voice only while app is resumed', () {
+      expect(canStartVoiceForLifecycleState(AppLifecycleState.resumed), isTrue);
+      expect(canStartVoiceForLifecycleState(AppLifecycleState.inactive), isFalse);
+      expect(canStartVoiceForLifecycleState(AppLifecycleState.hidden), isFalse);
+      expect(canStartVoiceForLifecycleState(AppLifecycleState.paused), isFalse);
+      expect(canStartVoiceForLifecycleState(AppLifecycleState.detached), isFalse);
+    });
+  });
+
   });
 }
