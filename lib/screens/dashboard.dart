@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
+import '../services/study_setup_state.dart';
 import '../theme.dart';
 import 'coming_soon.dart';
 import 'onboarding.dart';
@@ -129,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     body: Center(child: CircularProgressIndicator()),
                   );
                 }
-                if (setupSnap.data?['_setupRequired'] == true) {
+                if (isRequiredStudySetupPending(setupSnap.data ?? const {})) {
                   return OnboardingScreen(repo: widget.repo, requiredForNewAccount: true);
                 }
                 return Scaffold(

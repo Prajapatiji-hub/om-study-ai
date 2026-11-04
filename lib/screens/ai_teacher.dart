@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../services/ai_teacher_service.dart';
+import '../services/adaptive_study_context.dart';
 import '../theme.dart';
 
 class AiTeacherScreen extends StatefulWidget {
@@ -355,7 +356,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         final responses = attempt.data()['responses'];
         if (responses is! List) continue;
         for (final raw in responses) {
-          if (raw is Map && raw['selectedIndex'] != raw['correctIndex'] &&
+          if (raw is Map && isIncorrectQuizResponse(raw) &&
               raw['question'] is String) {
             mistakes.add(raw['question'] as String);
             if (mistakes.length >= 5) break;

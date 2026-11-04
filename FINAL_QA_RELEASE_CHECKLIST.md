@@ -15,7 +15,9 @@ Latest reviewed source snapshot (4 November 2026; update after each candidate bu
 - PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. Do not merge either PR as part of this workflow.
 - Build #133 succeeded for commit `e7a8fc2bcc72d52d07f8b58a90ee62546659a792`; the non-expired `om-study-ai-apk` artifact (25.92 MB) was confirmed. SHA-256: `4ce6bdd85d98911b59b15bc5549014018b6eacd260eafe44020a95080a6def41`. This is CI evidence, not physical-device acceptance.
 - Adaptive quiz context and weak-topic ranking are implemented; automated coverage exists in `test/adaptive_study_context_test.dart`. Device behavior remains NOT TESTED.
-- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. The next candidate adds pure validator tests and a field-validated owner-only Rules source update. Rules are source-only and NOT published or emulator-tested.
+- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. Pure validator tests and field-validated owner-only Rules source are included in Build #134. Rules are source-only and NOT published or emulator-tested.
+- Build #134 succeeded for commit `66e68575d5ffedf9f7cada755371104c3337e05a`; artifact `om-study-ai-apk` (25,923,555 bytes), SHA-256 `8a04479e971a3bb58047095c9d311fd0cb2aee491143a30a3bc9923907823d2e`, expires 2 February 2027. Workflow: `https://github.com/PrajapatiJi-hub/om-study-ai/actions/runs/41777091993`.
+- The next candidate adds automated tests for the explicit Study Setup gate and goal-dependent question flow, and applies one strict malformed-quiz-response predicate to both adaptive ranking and AI Teacher recent-mistake context.
 - Signup setup gating is wired through Dashboard's `_setupRequired` marker; test fresh signup, resume after force-close, and existing-account preservation on a physical device.
 - Worker deployment, live Firestore Rules publication, final main-branch APK, and complete physical-device acceptance remain release gates.
 

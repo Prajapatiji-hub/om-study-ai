@@ -1,3 +1,10 @@
+/// Returns true only for a well-formed, explicitly incorrect quiz response.
+bool isIncorrectQuizResponse(Map response) {
+  final selected = response['selectedIndex'];
+  final correct = response['correctIndex'];
+  return selected is int && correct is int && selected != correct;
+}
+
 /// Builds a compact, privacy-scoped learning profile for adaptive quiz generation.
 String buildAdaptiveQuizContext({
   required Map<String, dynamic> setupAnswers,
@@ -32,11 +39,8 @@ String buildAdaptiveQuizContext({
     if (rawResponses is! List) continue;
     for (final raw in rawResponses) {
       if (raw is! Map) continue;
-      final selected = raw['selectedIndex'];
-      final correct = raw['correctIndex'];
-      // Ignore malformed/legacy response rows instead of treating two missing
-      // indexes as a correct answer or inventing a weakness.
-      if (selected is! int || correct is! int || selected == correct) continue;
+      // Ignore malformed/legacy response rows instead of inventing a weakness.
+      if (!isIncorrectQuizResponse(raw)) continue;
       final question = raw['question'];
       if (question is String && question.trim().isNotEmpty && mistakes.length < 8) {
         mistakes.add(question.trim());

@@ -21,8 +21,6 @@ This document is an execution order that complements `FINAL_QA_RELEASE_CHECKLIST
 
 **Stop condition:** If project identity, test accounts, or data-safety boundary is uncertain, stop before any write test.
 
-## B. Ordered execution sequence
-
 ### B1a. AI Study Memory validation and Rules review (P0)
 
 - [ ] Run `test/study_memory_validator_test.dart`: trimming, blank removal, de-duplication, exact maximum lengths, over-limit rejection, and 12-topic boundary.
@@ -46,6 +44,8 @@ This document is an execution order that complements `FINAL_QA_RELEASE_CHECKLIST
 **Pass criteria:** all required checks complete successfully; release APK installs and opens. A green CI run alone is not a phone-test pass.
 
 ### B2. PR dependency and onboarding regression (P0)
+
+Automated source tests cover the explicit `_setupRequired` gate, goal-specific question branches, multi-goal branching, and visible-question progress. These tests complement—not replace—the disposable-account and physical-device checks below.
 
 Test PR #21 before PR #22:
 

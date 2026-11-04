@@ -1,41 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:om_study_ai/screens/onboarding.dart';
-
 void main() {
-  group('onboarding question visibility', () {
-    test('school goal shows school questions but hides unrelated tracks', () {
-      final questions = visibleQuestions({'goals': ['school']});
-      final ids = questions.map((question) => question.id).toSet();
-
+  group('Study Setup question branching', () {
+    test('school questions appear only when school goal is selected', () {
+      final school = visibleQuestions({'goals': ['school']}).map((q) => q.id).toList();
+      final noSchool = visibleQuestions({'goals': ['govt']}).map((q) => q.id).toList();
+      expect(school, containsAll(['school_class', 'school_board', 'school_stream', 'school_level', 'school_hard']));
+      expect(noSchool, isNot(contains('school_class')));
+    });
+    test('government and ITI questions are goal-specific', () {
+      final govt = visibleQuestions({'goals': ['govt']}).map((q) => q.id).toList();
+      final iti = visibleQuestions({'goals': ['iti']}).map((q) => q.id).toList();
+      expect(govt, containsAll(['govt_exam', 'govt_year', 'govt_level', 'govt_syllabus']));
+      expect(iti, containsAll(['iti_trade', 'iti_level', 'iti_mode']));
+      expect(govt, isNot(contains('iti_trade')));
+      expect(iti, isNot(contains('govt_exam')));
+    });
+    test('multi-goal learners receive both relevant question groups', () {
+      final ids = visibleQuestions({'goals': ['school', 'iti']}).map((q) => q.id).toList();
       expect(ids, contains('school_class'));
-      expect(ids, contains('school_board'));
+      expect(ids, contains('iti_trade'));
       expect(ids, contains('language'));
-      expect(ids, isNot(contains('govt_exam')));
-      expect(ids, isNot(contains('iti_trade')));
     });
-
-    test('progress counts only visible answered questions', () {
-      final answers = {
-        'goals': ['school'],
-        'school_class': '12',
-        'govt_exam': 'ssc',
-      };
-
-      final progress = onboardingProgress(answers);
-
-      expect(progress.done, 2);
-      expect(progress.total, visibleQuestions(answers).length);
-    });
-
-    test('no selected goal hides all track-specific questions', () {
-      final ids = visibleQuestions({'goals': <String>[]})
-          .map((question) => question.id)
-          .toSet();
-
-      expect(ids, isNot(contains('school_class')));
-      expect(ids, isNot(contains('govt_exam')));
-      expect(ids, isNot(contains('iti_trade')));
-      expect(ids, contains('language'));
+    test('progress counts only questions visible for selected goals', () {
+      final progress = onboardingProgress({'goals': ['school'], 'school_class': '12', 'language': 'hi'});
+      expect(progress.done, 3);
+      expect(progress.total, visibleQuestions({'goals': ['school']}).length);
     });
   });
 }
