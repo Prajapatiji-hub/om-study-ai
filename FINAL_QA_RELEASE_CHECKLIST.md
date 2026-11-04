@@ -1,3 +1,12 @@
+# FINAL_QA_RELEASE_CHECKLIST
+
+## Firestore Rules automated coverage
+- Run `npm --prefix rules-tests install --no-audit --no-fund`.
+- Run `npm --prefix rules-tests test`; this starts the local Firestore Emulator and executes allow/deny tests against the checked-in `firestore.rules`.
+- Emulator tests cover owner isolation, unauthenticated denial, bounded Study Memory writes, chat/message ownership and immutability, legacy history write restrictions, read-only catalog access and catch-all denial.
+- These tests validate the local Rules file only. They do not publish Rules to Firebase and do not prove production Rules are deployed.
+- Keep final manual Rules review and explicit owner approval before any production publication.
+
 # OM STUDY AI — Final QA, Security & Release Checklist
 
 **Purpose:** This is the release gate for the complete app. A green APK build is not proof that the app works on a real Android phone. Mark an item PASS only after recording the date, build/commit, test account, device, and evidence. Use NOT TESTED, BLOCKED, or FAIL honestly.
