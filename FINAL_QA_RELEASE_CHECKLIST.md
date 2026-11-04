@@ -22,13 +22,22 @@
 
 Latest reviewed source snapshot (4 November 2026; update after each candidate build):
 - PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. Do not merge either PR as part of this workflow.
-- Build #133 succeeded for commit `e7a8fc2bcc72d52d07f8b58a90ee62546659a792`; the non-expired `om-study-ai-apk` artifact (25.92 MB) was confirmed. SHA-256: `4ce6bdd85d98911b59b15bc5549014018b6eacd260eafe44020a95080a6def41`. This is CI evidence, not physical-device acceptance.
+- Build #163 succeeded for commit `2933a2ff2a940227582e9778ee5bca2fe4bca81d`; all workflow steps passed, including Worker JavaScript checks, Flutter Analyze, Flutter Tests, Firestore Emulator tests, Android NDK installation and Release APK build.
+- Build #163 artifact `om-study-ai-apk`: 25,923,929 bytes; SHA-256 `41817061510dddeb340255d8e36ac7bad330d287eb843cea4e51a23b134525f0`; expires 2 February 2027. Workflow: `https://github.com/PrajapatiJi-hub/om-study-ai/actions/runs/41784298236`. This is CI evidence, not physical-device acceptance.
+- Build #162 was cancelled by GitHub Actions concurrency; it is not a code-test failure and produced no artifact. Build #163 is the latest verified APK.
 - Adaptive quiz context and weak-topic ranking are implemented; automated coverage exists in `test/adaptive_study_context_test.dart`. Device behavior remains NOT TESTED.
-- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. Pure validator tests and field-validated owner-only Rules source are included in Build #134. Rules are source-only and NOT published or emulator-tested.
-- Build #134 succeeded for commit `66e68575d5ffedf9f7cada755371104c3337e05a`; artifact `om-study-ai-apk` (25,923,555 bytes), SHA-256 `8a04479e971a3bb58047095c9d311fd0cb2aee491143a30a3bc9923907823d2e`, expires 2 February 2027. Workflow: `https://github.com/PrajapatiJi-hub/om-study-ai/actions/runs/41777091993`.
-- The next candidate adds automated tests for the explicit Study Setup gate and goal-dependent question flow, and applies one strict malformed-quiz-response predicate to both adaptive ranking and AI Teacher recent-mistake context.
+- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. Owner-only Rules source and emulator tests exist; production Rules are NOT published.
 - Signup setup gating is wired through Dashboard's `_setupRequired` marker; test fresh signup, resume after force-close, and existing-account preservation on a physical device.
 - Worker deployment, live Firestore Rules publication, final main-branch APK, and complete physical-device acceptance remain release gates.
+
+## 1A. Latest focused audit findings (4 November 2026)
+
+- [x] Chat pagination uses a newest-first query ordered by `createdAt` plus document ID, cursor-based older-page loading, and ID deduplication. Unit tests cover ordering, overlap, live-copy preference and deterministic timestamp ties.
+- [x] Chat history remains scoped below the authenticated user's `users/{uid}` document. Firestore Emulator tests verify owner-only chat and message reads/writes, reject cross-account access, and prohibit message mutation/deletion.
+- [x] Voice initialization is lazy (only after the microphone action); lifecycle helpers permit voice start only in `resumed` and stop capture/output when the app becomes inactive, hidden, paused or detached. Automated lifecycle tests exist.
+- [ ] Real-device voice acceptance is still required: first-time permission prompt, deny once, permanently deny/settings recovery, no speech after backgrounding, and microphone unavailable/error behavior.
+- [ ] **AI Worker quota blocker:** current Worker validates Firebase ID tokens and bounds request/message/history sizes, but the checked-in Worker has no enforceable per-user request quota or rate-limit binding/configuration. Do not treat the AI endpoint as production abuse/billing protected until a free-tier-compatible server-side limit is implemented and tested. Do not deploy or enable a paid service as a workaround.
+- [ ] Worker tests currently cover provider error classification, but not end-to-end authentication failures, request-size rejection, malformed input, quiz schema rejection, or rate-limit behavior. Expand automated tests before production deployment.
 
 ## 2. Build, source and dependency checks
 
