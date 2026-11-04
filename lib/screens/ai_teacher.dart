@@ -365,7 +365,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           final role = data['role'];
           final text = data['text'];
           if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
-            final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+            final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
             recentQa.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 260 ? '${clean.substring(0, 260)}…' : clean}');
           }
         }
@@ -388,7 +388,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         final role = data['role'];
         final text = data['text'];
         if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
-        final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+        final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
         return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
       }).where((line) => line.isNotEmpty).toList();
       if (legacyQa.isNotEmpty) {
