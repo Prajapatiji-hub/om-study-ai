@@ -66,7 +66,9 @@ class AiTeacherService {
       throw StateError('लॉगिन की पुष्टि नहीं हुई। दोबारा लॉगिन करें।');
     }
     if (response.statusCode == 429) {
-      throw StateError('Gemini की मुफ्त उपयोग सीमा अभी पूरी हुई है। बाद में कोशिश करें।');
+      throw StateError(data['error'] == 'rate_limited'
+          ? 'आपने थोड़े समय में बहुत अनुरोध किए हैं। एक मिनट बाद फिर कोशिश करें।'
+          : 'AI की उपयोग सीमा अभी पूरी हुई है। बाद में कोशिश करें।');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = data['message'];
