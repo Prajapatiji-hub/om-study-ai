@@ -123,6 +123,9 @@ Test each flow on a clean install and on an existing account:
 ## 8. Voice input and answer listening
 
 - [ ] Android microphone permission prompt appears only when voice input is requested.
+- [x] Speech recognition initialization is lazy: it is not initialized during screen startup; it is initialized only after the student taps the microphone control. Verify permission prompt timing on a physical Android phone.
+- [x] Automated lifecycle helper allows voice start only in `resumed`; unit coverage denies inactive, hidden, paused and detached states.
+- [ ] Verify microphone denial, permanent denial and settings recovery on a physical Android phone; automated tests cannot replace this device check.
 - [ ] Denied permission, permanently denied permission and device without speech support show clear recovery guidance.
 - [ ] Hindi and English recognition are tested on-device; Hinglish limitations are documented.
 - [ ] Speech recognition fills the text field and does not auto-send without user action.
@@ -134,6 +137,7 @@ Test each flow on a clean install and on an existing account:
 
 ## 9. Image generation (only when explicitly requested)
 
+- [ ] STATUS: Image generation remains intentionally NOT IMPLEMENTED / DISABLED. No provider has been approved and verified for a dependable free quota, per-user server-side limits, safe private storage and deletion. Do not add a client-side mock or silently call a paid provider.
 - [ ] Implement only after selecting a model/API that is genuinely usable on the free tier and documenting its quota, licensing and safety constraints.
 - [ ] Text chat never generates an image unless the user explicitly asks.
 - [ ] Validate prompt length, image dimensions, step count and request rate on the server.
