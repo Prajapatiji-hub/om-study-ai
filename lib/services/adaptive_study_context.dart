@@ -69,6 +69,6 @@ String buildAdaptiveQuizContext({
     parts.add('पुरानी सुरक्षित AI Teacher बातचीत से सवाल: ${legacy.join(' | ')}');
   }
 
-  final context = parts.join('\\n');
+  final context = parts.join('\n');
   return context.length > 3000 ? context.substring(0, 3000) : context;
 }
