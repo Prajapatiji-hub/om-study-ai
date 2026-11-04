@@ -126,7 +126,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appInForeground = state == AppLifecycleState.resumed;
+    _appInForeground = canStartVoiceForLifecycleState(state);
     if (shouldStopVoiceForLifecycleState(state)) {
       _speech.stop();
       _tts.stop();
