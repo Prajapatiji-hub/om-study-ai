@@ -60,7 +60,7 @@ jobs:
           from pathlib import Path
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text(encoding='utf-8')
-          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\\n'
+          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
           if 'android.permission.RECORD_AUDIO' not in s:
               s = s.replace('<application', permission + '    <application', 1)
           p.write_text(s, encoding='utf-8')
@@ -86,7 +86,7 @@ jobs:
           }
           with open("lib/firebase_build_config.dart", "w", encoding="utf-8") as f:
               for name, value in values.items():
-                  f.write(f"const {name} = {json.dumps(value)};\\n")
+                  f.write(f"const {name} = {json.dumps(value)};\n")
           PY
 
       - name: Install Flutter dependencies
