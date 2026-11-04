@@ -210,7 +210,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       }
       setState(() {
         // Each new page is older than all pages already loaded.
-        _olderDocs.insertAll(0, page.docs);
+        _olderDocs.addAll(page.docs);
         _hasMoreOlder = page.docs.length == 50;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
