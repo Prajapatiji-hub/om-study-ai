@@ -345,7 +345,59 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     } catch (_) {
       // Older accounts may not have quiz history or its index yet.
     }
-    return parts.join('\n').substring(0, parts.join('\n').length > 3000 ? 3000 : parts.join('\n').length);
+    // Bring a small sample of this student's earlier AI Teacher Q&A into
+    // every new chat. This makes personalization follow the learner across
+    // separate sessions without copying or migrating legacy messages.
+    try {
+      final recentChats = await root.collection('ai_chats')
+          .orderBy('updatedAt', descending: true)
+          .limit(4)
+          .get();
+      final recentQa = <String>[];
+      for (final chat in recentChats.docs) {
+        if (chat.id == _chatId) continue; // Current chat history is sent separately.
+        final messages = await chat.reference.collection('messages')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get();
+        for (final doc in messages.docs.reversed) {
+          final data = doc.data();
+          final role = data['role'];
+          final text = data['text'];
+          if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
+            final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+            recentQa.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 260 ? '${clean.substring(0, 260)}…' : clean}');
+          }
+        }
+        if (recentQa.length >= 8) break;
+      }
+      if (recentQa.isNotEmpty) {
+        parts.add('पिछली अलग-अलग AI Teacher बातचीत से हाल के अध्ययन-संकेत (केवल प्रासंगिक होने पर उपयोग करें): ${recentQa.take(8).join(' | ')}');
+      }
+    } catch (_) {
+      // Cross-chat context is optional; never block a student's question.
+    }
+    try {
+      // Older flat history remains read-only and is sampled without migration.
+      final legacy = await root.collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(4)
+          .get();
+      final legacyQa = legacy.docs.reversed.map((doc) {
+        final data = doc.data();
+        final role = data['role'];
+        final text = data['text'];
+        if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
+        final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+        return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
+      }).where((line) => line.isNotEmpty).toList();
+      if (legacyQa.isNotEmpty) {
+        parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
+      }
+    } catch (_) {
+      // Legacy history may not exist for newer accounts.
+    }
+    return parts.join('\\n').substring(0, parts.join('\\n').length > 3000 ? 3000 : parts.join('\\n').length);
   }
 
   Future<void> _send() async {
