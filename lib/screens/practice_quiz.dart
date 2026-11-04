@@ -113,7 +113,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         for (final doc in messages.docs.reversed) {
           final data = doc.data();
           if (data['role'] == 'user' && data['text'] is String) {
-            final clean = (data['text'] as String).trim().replaceAll(RegExp(r'\\s+'), ' ');
+            final clean = (data['text'] as String).trim().replaceAll(RegExp(r'\s+'), ' ');
             if (clean.isNotEmpty) priorQuestions.add(clean);
           }
         }
