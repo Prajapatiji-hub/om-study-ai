@@ -106,7 +106,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                           style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
-                        value: [30, 60, 90, 120, 180, 240].contains(target) ? target : 120,
+                        initialValue: [30, 60, 90, 120, 180, 240].contains(target) ? target : 120,
                         decoration: const InputDecoration(labelText: 'रोज़ कितने मिनट पढ़ेंगे?'),
                         items: const [
                           DropdownMenuItem(value: 30, child: Text('30 मिनट')),
