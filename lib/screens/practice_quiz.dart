@@ -124,7 +124,6 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     }
     try {
       final legacy = await root.collection('ai_teacher_messages')
-          .where('role', isEqualTo: 'user')
           .orderBy('createdAt', descending: true)
           .limit(4)
           .get();
