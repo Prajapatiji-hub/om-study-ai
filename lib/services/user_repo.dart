@@ -185,6 +185,45 @@ class UserRepo {
   Future<void> deleteNote(String noteId) =>
       _notesCol.doc(noteId).delete().timeout(const Duration(seconds: 15));
 
+
+  DocumentReference<Map<String, dynamic>> get _studyMemoryDoc =>
+      _userDoc.collection('ai_study_memory').doc('profile');
+
+  Future<Map<String, dynamic>> loadStudyMemory() async =>
+      (await _studyMemoryDoc.get()).data() ?? {};
+
+  Future<void> saveStudyMemory({
+    required String summary,
+    required List<String> strengths,
+    required List<String> weakTopics,
+    required String preferredStyle,
+  }) async {
+    String cleanText(String value, int maxLength, String field) {
+      final clean = value.trim();
+      if (clean.length > maxLength) {
+        throw ArgumentError('$field अधिकतम $maxLength अक्षर का हो सकता है।');
+      }
+      return clean;
+    }
+
+    List<String> cleanItems(List<String> values, String field) {
+      final items = values.map((value) => value.trim())
+          .where((value) => value.isNotEmpty).toSet().toList();
+      if (items.length > 12 || items.any((value) => value.length > 60)) {
+        throw ArgumentError('$field में अधिकतम 12 विषय (हर एक 60 अक्षर तक) रखें।');
+      }
+      return items;
+    }
+
+    await _studyMemoryDoc.set({
+      'summary': cleanText(summary, 2000, 'पढ़ाई का सार'),
+      'strengths': cleanItems(strengths, 'मजबूत विषय'),
+      'weakTopics': cleanItems(weakTopics, 'कमजोर विषय'),
+      'preferredStyle': cleanText(preferredStyle, 300, 'समझाने का तरीका'),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 12));
+  }
+
   CollectionReference<Map<String, dynamic>> get _quizAttemptsCol =>
       _userDoc.collection('quiz_attempts');
 
