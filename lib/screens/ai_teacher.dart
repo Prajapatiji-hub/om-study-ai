@@ -397,7 +397,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     } catch (_) {
       // Legacy history may not exist for newer accounts.
     }
-    return parts.join('\\n').substring(0, parts.join('\\n').length > 3000 ? 3000 : parts.join('\\n').length);
+    return parts.join('\n').substring(0, parts.join('\n').length > 3000 ? 3000 : parts.join('\n').length);
   }
 
   Future<void> _send() async {
