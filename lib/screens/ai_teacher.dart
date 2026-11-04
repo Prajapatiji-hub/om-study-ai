@@ -46,7 +46,6 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     if (widget.mode == 'explain_question') _controller.text = 'कृपया इस प्रश्न को आसान भाषा में चरण-दर-चरण समझाइए।';
     _loadVoicePreference();
-    _initializeVoice();
   }
 
   Future<void> _loadVoicePreference() async {
@@ -67,8 +66,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       await _tts.setSpeechRate(0.48);
       await _tts.setPitch(1.0);
       _speechReady = await _speech.initialize(
-        onStatus: (status) { if (!mounted) return; setState(() => _listening = status == 'listening'); },
-        onError: (error) { if (!mounted) return; setState(() { _listening = false; _error = 'आवाज़ पहचानने में समस्या हुई। कृपया दोबारा कोशिश करें।'; }); },
+        onStatus: (status) { if (!mounted || !_appInForeground) return; setState(() => _listening = status == 'listening'); },
+        onError: (error) { if (!mounted || !_appInForeground) return; setState(() { _listening = false; _error = 'आवाज़ पहचानने में समस्या हुई। कृपया दोबारा कोशिश करें।'; }); },
       );
       if (mounted) setState(() {});
     } catch (_) {
@@ -84,7 +83,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     try {
       await _speech.listen(
         onResult: (result) {
-          if (!mounted) return;
+          if (!mounted || !_appInForeground || !_listening) return;
           setState(() => _controller.text = result.recognizedWords);
         },
         listenOptions: stt.SpeechListenOptions(
