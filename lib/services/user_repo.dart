@@ -15,9 +15,14 @@ class UserRepo {
       _userDoc.collection('onboarding').doc('answers');
 
   Future<void> ensureProfile() async {
-    final snap = await _userDoc.get();
-    if (!snap.exists) {
-      await _userDoc.set({
+    // Create the profile and required-onboarding marker atomically. If either
+    // write fails, neither is committed, so a new account cannot bypass setup
+    // because the profile write succeeded but the marker write failed.
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(_userDoc);
+      if (snap.exists) return;
+
+      transaction.set(_userDoc, {
         'uid': uid,
         'displayName': (user.displayName ?? '').trim().isEmpty
             ? 'विद्यार्थी'
@@ -27,13 +32,12 @@ class UserRepo {
         'selectedGoals': <String>[],
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // Only profiles created from this point forward are required to complete setup.
-      // Existing accounts are deliberately left untouched.
-      await _answersDoc.set({
+      // Existing profiles are deliberately left untouched.
+      transaction.set(_answersDoc, {
         '_setupRequired': true,
         '_setupCreatedAt': FieldValue.serverTimestamp(),
       });
-    }
+    }).timeout(const Duration(seconds: 15));
   }
 
   Future<void> completeRequiredSetup() async {
