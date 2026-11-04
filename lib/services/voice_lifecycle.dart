@@ -6,3 +6,7 @@ bool shouldStopVoiceForLifecycleState(AppLifecycleState state) =>
     state == AppLifecycleState.hidden ||
     state == AppLifecycleState.paused ||
     state == AppLifecycleState.detached;
+
+/// Voice may only start while the app is fully resumed in the foreground.
+bool canStartVoiceForLifecycleState(AppLifecycleState state) =>
+    state == AppLifecycleState.resumed;
