@@ -101,7 +101,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return StreamBuilder<Map<String, dynamic>>(
               stream: widget.repo.answers(),
               builder: (context, setupSnap) {
-                if (setupSnap.hasData && setupSnap.data?['_setupRequired'] == true) {
+                if (setupSnap.hasError) {
+                  return Scaffold(
+                    body: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Study Setup की स्थिति जाँची नहीं जा सकी। इंटरनेट जाँचकर दोबारा कोशिश करें।',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: () => setState(() {}),
+                              child: const Text('फिर कोशिश करें'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                if (!setupSnap.hasData) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (setupSnap.data?['_setupRequired'] == true) {
                   return OnboardingScreen(repo: widget.repo, requiredForNewAccount: true);
                 }
                 return Scaffold(
