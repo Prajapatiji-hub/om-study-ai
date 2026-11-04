@@ -82,7 +82,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           if (!mounted) return;
           setState(() => _controller.text = result.recognizedWords);
         },
-        options: stt.SpeechListenOptions(
+        listenOptions: stt.SpeechListenOptions(
           listenFor: const Duration(seconds: 45),
           pauseFor: const Duration(seconds: 4),
           partialResults: true,
@@ -290,7 +290,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
 
   String _titleFor(String value) {
     final clean=value.replaceAll(RegExp(r'\s+'),' ').trim();
-    return clean.length>42 ? clean.substring(0,42)+'…' : clean;
+    return clean.length > 42 ? '${clean.substring(0, 42)}…' : clean;
   }
 
   Future<String> _loadStudyMemory() async {
