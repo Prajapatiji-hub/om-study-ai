@@ -24,6 +24,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
   final FlutterTts _tts = FlutterTts();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechReady = false, _listening = false;
+  bool _appInForeground = true;
   String _voiceLocale = 'hi-IN';
   String? _speakingMessage;
   String? _chatId;
@@ -78,6 +79,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
   Future<void> _toggleListening() async {
     if (_listening) { await _speech.stop(); if (mounted) setState(() => _listening = false); return; }
     if (!_speechReady) await _initializeVoice();
+    if (!mounted || !_appInForeground) return;
     if (!_speechReady) { if (mounted) setState(() => _error = 'इस फोन में Speech Recognition उपलब्ध नहीं है।'); return; }
     try {
       await _speech.listen(
@@ -92,7 +94,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           localeId: _voiceLocale,
         ),
       );
-      if (mounted) setState(() { _listening = true; _error = null; });
+      if (mounted && _appInForeground) setState(() { _listening = true; _error = null; });
+      if (!_appInForeground) await _speech.stop();
     } catch (_) {
       if (mounted) setState(() { _listening = false; _error = 'माइक्रोफ़ोन शुरू नहीं हो पाया। अनुमति जाँचें।'; });
     }
@@ -106,12 +109,15 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         return;
       }
       await _tts.stop();
-      if (mounted) setState(() => _speakingMessage = message);
+      if (!mounted || !_appInForeground) return;
+      setState(() => _speakingMessage = message);
       try {
         await _tts.setLanguage(_voiceLocale);
+        if (!mounted || !_appInForeground) return;
       } catch (_) {
         await _tts.setLanguage('en-US');
       }
+      if (!mounted || !_appInForeground) return;
       await _tts.speak(message);
       if (mounted) setState(() => _speakingMessage = null);
     } catch (_) {
@@ -121,6 +127,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appInForeground = state == AppLifecycleState.resumed;
     if (shouldStopVoiceForLifecycleState(state)) {
       _speech.stop();
       _tts.stop();
