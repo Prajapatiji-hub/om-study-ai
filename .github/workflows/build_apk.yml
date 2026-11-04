@@ -98,6 +98,11 @@ jobs:
       - name: Run Flutter tests
         run: flutter test --no-pub
 
+      - name: Run Firestore Rules Emulator tests
+        run: |
+          npm --prefix rules-tests install --no-audit --no-fund
+          npm --prefix rules-tests test
+
       - name: Build release APK
         env:
           AI_WORKER_URL: ${{ secrets.AI_WORKER_URL }}
