@@ -80,6 +80,8 @@ Test PR #22 with a disposable account containing at least 120 messages distribut
 - [ ] Verify recent quiz context belongs only to the signed-in user and is bounded to a small recent sample.
 - [ ] Verify AI-generated practice is never labelled official PYQ without source verification.
 - [ ] Confirm onboarding language/level/goals influence the response appropriately; malformed optional context does not break chat.
+- [ ] Verify wrong answers are persisted with their generated question topic; repeated mistakes rank weak topics by frequency in the next AI quiz context.
+- [ ] Verify correct answers do not increase weak-topic counts, old records without a topic remain compatible, and the context is capped at 3,000 characters.
 
 **Pass criteria:** schema validation, scoring, persistence, mistake review, and per-user context all match actual stored data.
 
