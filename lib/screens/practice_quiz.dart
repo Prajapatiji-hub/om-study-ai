@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/user_repo.dart';
 import '../services/ai_teacher_service.dart';
+import '../services/adaptive_study_context.dart';
 import '../theme.dart';
 import 'ai_teacher.dart';
 
@@ -12,7 +13,8 @@ class PracticeQuestion {
   final List<String> options;
   final int answer;
   final String explanation;
-  const PracticeQuestion(this.question, this.options, this.answer, this.explanation);
+  final String topic;
+  const PracticeQuestion(this.question, this.options, this.answer, this.explanation, {this.topic = ''});
 }
 
 // Starter practice questions written for this app. These are not official PYQs.
@@ -77,37 +79,32 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    final parts = <String>[];
+    Map<String, dynamic> answers = {};
+    final attempts = <Map<String, dynamic>>[];
+    final priorQuestions = <String>[];
+    final legacyQuestions = <String>[];
+
     try {
-      final answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
-      for (final key in ['goals','school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','language','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
-        final value = answers[key];
-        if (value is String && value.isNotEmpty && value != '__skipped') parts.add('$key: $value');
-        if (value is List && value.isNotEmpty) parts.add('$key: ${value.join(', ')}');
-      }
-    } catch (_) {}
+      answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Missing setup data must not prevent a practice test.
+    }
     try {
-      final attempts = await root.collection('quiz_attempts').orderBy('createdAt', descending: true).limit(3).get();
-      final mistakes = <String>[];
-      for (final attempt in attempts.docs) {
-        final responses = attempt.data()['responses'];
-        if (responses is! List) continue;
-        for (final raw in responses) {
-          if (raw is Map && raw['selectedIndex'] != raw['correctIndex'] && raw['question'] is String) mistakes.add(raw['question'] as String);
-          if (mistakes.length >= 5) break;
-        }
-        if (mistakes.length >= 5) break;
-      }
-      if (mistakes.isNotEmpty) parts.add('हाल की गलतियाँ: ${mistakes.join(' | ')}');
-    } catch (_) {}
-    // Use a bounded sample of the student's earlier AI Teacher questions
-    // so generated practice can revisit concepts they have already asked about.
+      final snapshot = await root.collection('quiz_attempts')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+      attempts.addAll(snapshot.docs.map((doc) => doc.data()));
+    } catch (_) {
+      // Quiz history is optional for older accounts.
+    }
+
+    // Include a bounded sample of the student's own prior AI Teacher questions.
     try {
       final chats = await root.collection('ai_chats')
           .orderBy('updatedAt', descending: true)
           .limit(3)
           .get();
-      final qa = <String>[];
       for (final chat in chats.docs) {
         final messages = await chat.reference.collection('messages')
             .orderBy('createdAt', descending: true)
@@ -115,38 +112,36 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             .get();
         for (final doc in messages.docs.reversed) {
           final data = doc.data();
-          final role = data['role'];
-          final text = data['text'];
-          if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
-            final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-            qa.add('${role == 'user' ? 'विद्यार्थी का सवाल' : 'AI शिक्षक का जवाब'}: ${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}');
+          if (data['role'] == 'user' && data['text'] is String) {
+            final clean = (data['text'] as String).trim().replaceAll(RegExp(r'\\s+'), ' ');
+            if (clean.isNotEmpty) priorQuestions.add(clean);
           }
         }
-        if (qa.length >= 6) break;
+        if (priorQuestions.length >= 6) break;
       }
-      if (qa.isNotEmpty) parts.add('हाल की AI Teacher बातचीत (इन्हीं अवधारणाओं का उपयोगी पुनराभ्यास करें): ${qa.take(6).join(' | ')}');
     } catch (_) {
-      // AI chat context is optional; quiz generation can use available records.
+      // Chat history is optional; continue with setup and quiz records.
     }
     try {
       final legacy = await root.collection('ai_teacher_messages')
+          .where('role', isEqualTo: 'user')
           .orderBy('createdAt', descending: true)
-          .limit(3)
+          .limit(4)
           .get();
-      final qa = legacy.docs.reversed.map((doc) {
-        final data = doc.data();
-        final role = data['role'];
-        final text = data['text'];
-        if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
-        final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-        return '${role == 'user' ? 'पुराना विद्यार्थी सवाल' : 'पुराना AI जवाब'}: ${clean.length > 180 ? '${clean.substring(0, 180)}…' : clean}';
-      }).where((line) => line.isNotEmpty).toList();
-      if (qa.isNotEmpty) parts.add('पुरानी सुरक्षित बातचीत: ${qa.join(' | ')}');
+      for (final doc in legacy.docs) {
+        final value = doc.data()['text'];
+        if (value is String && value.trim().isNotEmpty) legacyQuestions.add(value.trim());
+      }
     } catch (_) {
-      // Legacy history may not exist.
+      // Legacy history may be absent or use an older query index.
     }
-    final joined = parts.join('\n');
-    return joined.length > 3000 ? joined.substring(0, 3000) : joined;
+
+    return buildAdaptiveQuizContext(
+      setupAnswers: answers,
+      quizAttempts: attempts,
+      priorTeacherQuestions: priorQuestions,
+      legacyTeacherQuestions: legacyQuestions,
+    );
   }
 
   Future<void> _generateQuiz() async {
@@ -162,7 +157,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     setState(() => _generating = true);
     try {
       final result = await AiTeacherService().generateQuiz(topic: topic, count: requestedCount, studyMemory: await _loadQuizStudyContext());
-      final generated = (result['questions'] as List).map((raw) { final item = Map<String, dynamic>.from(raw as Map); return PracticeQuestion(item['question'] as String, List<String>.from(item['options'] as List), item['answerIndex'] as int, item['explanation'] as String); }).toList();
+      final generated = (result['questions'] as List).map((raw) { final item = Map<String, dynamic>.from(raw as Map); return PracticeQuestion(item['question'] as String, List<String>.from(item['options'] as List), item['answerIndex'] as int, item['explanation'] as String, topic: item['topic'] as String? ?? topic); }).toList();
       if (!mounted) return;
       setState(() { _activeQuestions = generated; _index = 0; _selected = null; _score = 0; _answered = false; _saving = false; _saved = false; _saveError = null; _responses.clear(); _isAiQuiz = true; });
     } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI टेस्ट नहीं बन पाया: $e'))); }
@@ -179,6 +174,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         'selectedIndex': _selected!,
         'correctIndex': _current.answer,
         'explanation': _current.explanation,
+        'topic': _current.topic,
       });
       if (_selected == _current.answer) _score++;
     });
