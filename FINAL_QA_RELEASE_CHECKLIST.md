@@ -11,13 +11,13 @@
 
 ## 1. Release status snapshot
 
-At the time this checklist was added:
-- PR #21 (required signup study setup) is still open.
-- PR #22 (chat sessions, study context and voice work) is still open and is based on PR #21's feature branch.
-- Recent CI builds #87 and #88 completed successfully. This proves the configured workflow completed; it does not prove phone behavior, live Worker availability, Firestore Rules publication, or full acceptance.
-- The current chat-history “load older” behavior increases a query limit and re-reads a larger result set. It is not yet verified as cursor pagination.
-- Study context is assembled from onboarding answers and recent quiz attempts; this is not yet a complete editable, durable AI memory system.
-- AI image generation, final consolidated Firestore Rules publication, final main-branch APK, and complete physical-device acceptance remain release-gate items.
+Latest reviewed source snapshot (4 November 2026; update after each candidate build):
+- PR #21 (required signup Study Setup) remains open and Draft; PR #22 (AI chat sessions) remains open and Draft, stacked on PR #21's feature branch.
+- Build #117 completed successfully for commit `08f8ea8`; its non-expired `om-study-ai-apk` artifact was confirmed. This is not a phone-test pass.
+- The current chat source uses ordered cursor pagination with `startAfterDocument`, a document-ID tie-breaker, and a separate live newest-message stream. The 120+ message device test is still NOT TESTED.
+- AI context is assembled from per-user onboarding, recent quiz attempts, current/legacy chat records. It is not yet a complete editable, durable AI memory system.
+- The next candidate adds quiz-question topic persistence and ranks weak topics from recent wrong answers. Its CI/build result must be recorded separately; do not mark adaptive behavior PASS until the latest candidate workflow succeeds and on-device behavior is checked.
+- AI image generation, final consolidated Firestore Rules publication, Worker deployment, final main-branch APK, and complete physical-device acceptance remain release-gate items.
 
 Update this snapshot when the branch/build state changes.
 
@@ -107,6 +107,9 @@ Test each flow on a clean install and on an existing account:
 - [ ] Clearly label generated questions as AI-generated; never present them as official PYQs unless source-verified.
 - [ ] Test quota/rate-limit/provider error during quiz generation and show a useful retry message.
 - [ ] Verify topic/weakness adaptation against recorded mistakes. If no robust weak-topic model exists, do not claim the quiz is fully adaptive.
+- [ ] For each AI-generated quiz response, persist the generated topic with the selected/correct answer indexes.
+- [ ] In the next quiz context, count only incorrect answers with known topics, rank repeated weak topics, include a bounded recent score summary, and keep the total context at or below 3,000 characters.
+- [ ] Confirm legacy attempts without a topic remain readable and do not falsely create a weak-topic label.
 
 ## 8. Voice input and answer listening
 
