@@ -28,6 +28,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
   bool _legacy = false, _sending = false;
   bool _loadingOlder = false, _hasMoreOlder = true;
   final List<QueryDocumentSnapshot<Map<String, dynamic>>> _olderDocs = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _lastLiveDocs = [];
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _activeMessageStream;
   String? _error;
 
   User? get _user => FirebaseAuth.instance.currentUser;
@@ -135,6 +137,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       _chatTitle = 'नई बातचीत';
       _legacy = false;
       _olderDocs.clear();
+      _lastLiveDocs = [];
+      _activeMessageStream = null;
       _loadingOlder = false;
       _hasMoreOlder = true;
       _error = null;
@@ -154,6 +158,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       _error = null;
       _controller.clear();
     });
+    _activateMessageStream();
   }
 
   Query<Map<String, dynamic>>? get _messageQuery {
@@ -166,6 +171,39 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         .orderBy('createdAt', descending: true)
         .orderBy(FieldPath.documentId, descending: true)
         .limit(50);
+  }
+
+  int _compareMessagesDescending(
+    QueryDocumentSnapshot<Map<String, dynamic>> a,
+    QueryDocumentSnapshot<Map<String, dynamic>> b,
+  ) {
+    final aTime = a.data()['createdAt'];
+    final bTime = b.data()['createdAt'];
+    if (aTime is Timestamp && bTime is Timestamp) {
+      final byTime = bTime.compareTo(aTime);
+      if (byTime != 0) return byTime;
+    }
+    return b.id.compareTo(a.id);
+  }
+
+  void _activateMessageStream() {
+    final query = _messageQuery;
+    _activeMessageStream = query?.snapshots().map((snapshot) {
+      final currentDocs = snapshot.docs;
+      final currentIds = currentDocs.map((doc) => doc.id).toSet();
+      final knownIds = _olderDocs.map((doc) => doc.id).toSet();
+
+      // Preserve documents that leave the newest live window as new messages
+      // arrive; otherwise a moving limit(50) window could create history gaps.
+      for (final previous in _lastLiveDocs) {
+        if (!currentIds.contains(previous.id) && knownIds.add(previous.id)) {
+          _olderDocs.add(previous);
+        }
+      }
+      _olderDocs.sort(_compareMessagesDescending);
+      _lastLiveDocs = List.of(currentDocs);
+      return snapshot;
+    });
   }
 
   Future<void> _loadOlder(
@@ -209,8 +247,13 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         return;
       }
       setState(() {
-        // Each new page is older than all pages already loaded.
-        _olderDocs.addAll(page.docs);
+        // Merge by document ID because the live window may have advanced
+        // while this page request was in flight.
+        final knownIds = _olderDocs.map((doc) => doc.id).toSet();
+        for (final doc in page.docs) {
+          if (knownIds.add(doc.id)) _olderDocs.add(doc);
+        }
+        _olderDocs.sort(_compareMessagesDescending);
         _hasMoreOlder = page.docs.length == 50;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -332,6 +375,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       await batch.commit();
       if (!mounted) return;
       setState(() { _chatId = id; _chatTitle = title; });
+      if (currentId == null) _activateMessageStream();
       _scrollBottom();
     } catch(e) {
       if (!mounted) return;
@@ -390,7 +434,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         if(explain) Container(width:double.infinity,color:const Color(0xFFEAF4F2),padding:const EdgeInsets.all(12),
           child:Text('प्रश्न: ${widget.question}\nआपका उत्तर: ${widget.selectedAnswer}\nसही उत्तर: ${widget.correctAnswer}')),
         Expanded(child:_chatId==null ? _empty(explain) : StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
-          stream:_messageQuery!.snapshots(),
+          stream:_activeMessageStream,
           builder:(context,snapshot){
             if(snapshot.hasError)return const Center(child:Text('संदेश लोड नहीं हुए।'));
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
