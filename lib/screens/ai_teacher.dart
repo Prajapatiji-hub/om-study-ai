@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../services/ai_teacher_service.dart';
+import '../services/chat_message_pagination.dart';
 import '../services/adaptive_study_context.dart';
 import '../services/voice_lifecycle.dart';
 import '../theme.dart';
@@ -525,10 +526,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
             // Keep the live newest page before the older pages while the
             // combined descending list is reversed for chronological display.
-            final descendingDocs = [
-              ...snapshot.data!.docs,
-              ..._olderDocs,
-            ];
+            final descendingDocs = mergeChatMessagePages(
+              live: snapshot.data!.docs,
+              older: _olderDocs,
+              id: (doc) => doc.id,
+              compareDescending: _compareMessagesDescending,
+            );
             final docs = descendingDocs.reversed.toList();
             if (docs.isEmpty) return _empty(explain);
             final showLoadOlder =
