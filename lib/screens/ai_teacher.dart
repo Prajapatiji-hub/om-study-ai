@@ -523,9 +523,11 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           builder:(context,snapshot){
             if(snapshot.hasError)return const Center(child:Text('संदेश लोड नहीं हुए।'));
             if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
+            // Keep the live newest page before the older pages while the
+            // combined descending list is reversed for chronological display.
             final descendingDocs = [
-              ..._olderDocs,
               ...snapshot.data!.docs,
+              ..._olderDocs,
             ];
             final docs = descendingDocs.reversed.toList();
             if (docs.isEmpty) return _empty(explain);
