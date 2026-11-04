@@ -153,6 +153,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       _chatTitle = title;
       _legacy = legacy;
       _olderDocs.clear();
+      _lastLiveDocs = [];
+      _activeMessageStream = null;
       _loadingOlder = false;
       _hasMoreOlder = true;
       _error = null;
