@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../services/user_repo.dart';
+import '../services/study_setup_state.dart';
 import '../theme.dart';
 
 const kSkipped = '__skipped';
@@ -24,7 +25,6 @@ const _level = {'beginner': 'शुरुआती', 'medium': 'ठीक-ठा
 final List<Q> kQuestions = [
   Q('goals', 'आप किस चीज़ की पढ़ाई करना चाहते हैं? (एक से ज़्यादा चुन सकते हैं)', 'multi',
       options: {'school': 'स्कूल की पढ़ाई', 'govt': 'सरकारी परीक्षा', 'iti': 'ITI / हुनर (Skill)'}),
-  // School
   Q('school_class', 'आप किस क्लास में हैं?', 'single',
       options: {'10': 'क्लास 10', '11': 'क्लास 11', '12': 'क्लास 12'}, show: (a) => _has(a, 'school')),
   Q('school_board', 'आपका बोर्ड कौन-सा है?', 'single',
@@ -37,15 +37,8 @@ final List<Q> kQuestions = [
       options: _level, show: (a) => _has(a, 'school')),
   Q('school_hard', 'कौन-से विषय या चैप्टर मुश्किल लगते हैं?', 'text',
       optional: true, show: (a) => _has(a, 'school')),
-  // Govt
   Q('govt_exam', 'किस परीक्षा की तैयारी करनी है?', 'single',
-      options: {
-        'rrb_alp': 'रेलवे ALP',
-        'rrb_tech': 'रेलवे टेक्नीशियन',
-        'ssc': 'SSC',
-        'jharkhand': 'झारखंड की सरकारी परीक्षाएँ',
-        'other': 'दूसरी'
-      },
+      options: {'rrb_alp': 'रेलवे ALP', 'rrb_tech': 'रेलवे टेक्नीशियन', 'ssc': 'SSC', 'jharkhand': 'झारखंड की सरकारी परीक्षाएँ', 'other': 'दूसरी'},
       show: (a) => _has(a, 'govt')),
   Q('govt_year', 'कौन-से साल की परीक्षा का लक्ष्य है?', 'text',
       optional: true, show: (a) => _has(a, 'govt')),
@@ -53,21 +46,13 @@ final List<Q> kQuestions = [
       options: _level, show: (a) => _has(a, 'govt')),
   Q('govt_syllabus', 'क्या आपने सिलेबस पढ़ा है?', 'single',
       options: {'yes': 'हाँ', 'partly': 'थोड़ा', 'no': 'नहीं'}, show: (a) => _has(a, 'govt')),
-  // ITI
   Q('iti_trade', 'कौन-सा हुनर / ट्रेड सीखना है?', 'single',
-      options: {
-        'electrician': 'इलेक्ट्रीशियन',
-        'asst_electrician': 'असिस्टेंट इलेक्ट्रीशियन',
-        'solar': 'सोलर इंस्टॉलेशन',
-        'other': 'दूसरा'
-      },
+      options: {'electrician': 'इलेक्ट्रीशियन', 'asst_electrician': 'असिस्टेंट इलेक्ट्रीशियन', 'solar': 'सोलर इंस्टॉलेशन', 'other': 'दूसरा'},
       show: (a) => _has(a, 'iti')),
-  Q('iti_level', 'इस काम का आपका अनुभव कितना है?', 'single',
+  Q('iti_level', 'इस काम का अनुभव कितना है?', 'single',
       options: {'none': 'बिल्कुल नहीं', 'some': 'थोड़ा', 'good': 'काफ़ी'}, show: (a) => _has(a, 'iti')),
   Q('iti_mode', 'आप क्या सीखना चाहते हैं?', 'single',
-      options: {'theory': 'सिर्फ़ थ्योरी', 'practical': 'प्रैक्टिकल समझ', 'both': 'दोनों'},
-      show: (a) => _has(a, 'iti')),
-  // Preferences
+      options: {'theory': 'सिर्फ़ थ्योरी', 'practical': 'प्रैक्टिकल समझ', 'both': 'दोनों'}, show: (a) => _has(a, 'iti')),
   Q('language', 'आप किस भाषा में पढ़ना चाहते हैं?', 'single',
       options: {'hi': 'हिंदी', 'en': 'English', 'hinglish': 'Hinglish'}),
   Q('hours', 'रोज़ कितने घंटे पढ़ सकते हैं?', 'single',
@@ -95,7 +80,7 @@ List<Q> visibleQuestions(Map<String, dynamic> a) =>
 
 class OnboardingScreen extends StatefulWidget {
   final UserRepo repo;
-  final bool edit; // true = start from first question to change answers
+  final bool edit;
   final bool requiredForNewAccount;
   const OnboardingScreen({super.key, required this.repo, this.edit = false, this.requiredForNewAccount = false});
   @override
@@ -125,9 +110,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _load() async {
     try {
       _answers = Map<String, dynamic>.from(await widget.repo.loadAnswers());
-      final v = visibleQuestions(_answers);
-      _idx = widget.edit ? 0 : v.indexWhere((q) => !_answers.containsKey(q.id));
-      if (_idx < 0) _idx = v.length;
+      final ids = visibleQuestions(_answers).map((q) => q.id).toList();
+      _idx = widget.edit ? 0 : firstUnansweredStudySetupQuestionIndex(ids, _answers);
+      if (_idx < 0) _idx = ids.length;
       _prime();
     } catch (_) {
       _error = 'जवाब लोड नहीं हो सके। इंटरनेट जाँचकर दोबारा खोलें।';
@@ -153,7 +138,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _error = null;
     });
     try {
-      await widget.repo.saveAnswer(q.id, value); // saved immediately to this user's account
+      await widget.repo.saveAnswer(q.id, value);
       _answers[q.id] = value;
       if (q.id == 'goals') await widget.repo.updateProfile({'selectedGoals': value});
       if (q.id == 'language') await widget.repo.updateProfile({'language': value});
@@ -169,8 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-          appBar: AppBar(title: const Text('सेटअप')),
+      return Scaffold(appBar: AppBar(title: const Text('सेटअप')),
           body: const Center(child: CircularProgressIndicator()));
     }
     final v = visibleQuestions(_answers);
@@ -190,6 +174,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finishSetup() async {
+    final visibleIds = visibleQuestions(_answers).map((q) => q.id).toList();
+    if (!hasCompletedRequiredStudySetup(visibleIds, _answers)) {
+      final missing = firstUnansweredStudySetupQuestionIndex(visibleIds, _answers);
+      setState(() {
+        _idx = missing < 0 ? 0 : missing;
+        _prime();
+        _error = 'पहले सभी ज़रूरी सवालों के जवाब सहेजें।';
+      });
+      return;
+    }
     setState(() { _saving = true; _error = null; });
     try {
       await widget.repo.completeRequiredSetup();
@@ -207,16 +201,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Icon(Icons.check_circle, size: 72, color: kTeal),
           const SizedBox(height: 16),
-          const Text('सेटअप पूरा हुआ!',
-              textAlign: TextAlign.center,
+          const Text('सेटअप पूरा हुआ!', textAlign: TextAlign.center,
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const Text('जवाब कभी भी प्रोफ़ाइल से बदल सकते हैं।',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 17)),
           const SizedBox(height: 24),
           if (_error != null) Text(_error!, style: const TextStyle(color: kError)),
-          FilledButton(
-              onPressed: _saving ? null : _finishSetup,
+          FilledButton(onPressed: _saving ? null : _finishSetup,
               child: _saving ? const CircularProgressIndicator() : const Text('डैशबोर्ड पर जाएँ')),
         ],
       );
@@ -234,10 +226,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ...q.options.entries.map((e) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _answers[q.id] == e.key
-                    ? FilledButton(
-                        onPressed: _saving ? null : () => _save(q, e.key), child: Text(e.value))
-                    : OutlinedButton(
-                        onPressed: _saving ? null : () => _save(q, e.key), child: Text(e.value)),
+                    ? FilledButton(onPressed: _saving ? null : () => _save(q, e.key), child: Text(e.value))
+                    : OutlinedButton(onPressed: _saving ? null : () => _save(q, e.key), child: Text(e.value)),
               )),
         if (q.type == 'multi') ...[
           ...q.options.entries.map((e) => CheckboxListTile(
@@ -248,41 +238,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 }),
               )),
           const SizedBox(height: 12),
-          FilledButton(
-              onPressed: (_saving || _multi.isEmpty) ? null : () => _save(q, List<String>.from(_multi)),
+          FilledButton(onPressed: (_saving || _multi.isEmpty) ? null : () => _save(q, List<String>.from(_multi)),
               child: const Text('आगे बढ़ें')),
         ],
         if (q.type == 'text') ...[
-          TextField(
-            controller: _text,
-            maxLength: 200,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(hintText: 'यहाँ लिखें'),
-          ),
+          TextField(controller: _text, maxLength: 200, onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(hintText: 'यहाँ लिखें')),
           const SizedBox(height: 8),
-          FilledButton(
-              onPressed: _saving || _text.text.trim().isEmpty ? null : () => _save(q, _text.text.trim()),
+          FilledButton(onPressed: _saving || _text.text.trim().isEmpty ? null : () => _save(q, _text.text.trim()),
               child: const Text('सहेजें')),
         ],
         if (q.optional) ...[
           const SizedBox(height: 10),
-          TextButton(
-              onPressed: _saving ? null : () => _save(q, kSkipped),
+          TextButton(onPressed: _saving ? null : () => _save(q, kSkipped),
               child: const Text('यह सवाल छोड़ें', style: TextStyle(fontSize: 17))),
         ],
         if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(_error!, style: const TextStyle(color: kError, fontSize: 16)),
-          ),
+          Padding(padding: const EdgeInsets.only(top: 12),
+              child: Text(_error!, style: const TextStyle(color: kError, fontSize: 16))),
         if (_idx > 0)
-          TextButton(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() {
-                        _idx--;
-                        _prime();
-                      }),
+          TextButton(onPressed: _saving ? null : () => setState(() { _idx--; _prime(); }),
               child: const Text('पिछला सवाल', style: TextStyle(fontSize: 17))),
       ],
     );
