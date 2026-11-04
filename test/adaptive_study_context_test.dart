@@ -39,7 +39,7 @@ void main() {
         priorTeacherQuestions: List<String>.filled(30, 'विद्यार्थी का लंबा सवाल ' * 30),
       );
 
-      expect(context, contains('पुरानी गलतियाँ'));
+      expect(context, contains('पिछली गलतियाँ'));
       expect(context.length, lessThanOrEqualTo(3000));
     });
 
