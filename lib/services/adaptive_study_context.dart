@@ -34,7 +34,9 @@ String buildAdaptiveQuizContext({
       if (raw is! Map) continue;
       final selected = raw['selectedIndex'];
       final correct = raw['correctIndex'];
-      if (selected == correct) continue;
+      // Ignore malformed/legacy response rows instead of treating two missing
+      // indexes as a correct answer or inventing a weakness.
+      if (selected is! int || correct is! int || selected == correct) continue;
       final question = raw['question'];
       if (question is String && question.trim().isNotEmpty && mistakes.length < 8) {
         mistakes.add(question.trim());
