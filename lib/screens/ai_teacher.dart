@@ -78,11 +78,16 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     if (!_speechReady) { if (mounted) setState(() => _error = 'इस फोन में Speech Recognition उपलब्ध नहीं है।'); return; }
     try {
       await _speech.listen(
-        onResult: (result) { if (!mounted) return; setState(() => _controller.text = result.recognizedWords); },
-        listenFor: const Duration(seconds: 45),
-        pauseFor: const Duration(seconds: 4),
-        partialResults: true,
-        localeId: _voiceLocale,
+        onResult: (result) {
+          if (!mounted) return;
+          setState(() => _controller.text = result.recognizedWords);
+        },
+        options: stt.SpeechListenOptions(
+          listenFor: const Duration(seconds: 45),
+          pauseFor: const Duration(seconds: 4),
+          partialResults: true,
+          localeId: _voiceLocale,
+        ),
       );
       if (mounted) setState(() { _listening = true; _error = null; });
     } catch (_) {
