@@ -60,7 +60,7 @@ jobs:
           from pathlib import Path
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text(encoding='utf-8')
-          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\\n'
           if 'android.permission.RECORD_AUDIO' not in s:
               s = s.replace('<application', permission + '    <application', 1)
           p.write_text(s, encoding='utf-8')
@@ -86,7 +86,7 @@ jobs:
           }
           with open("lib/firebase_build_config.dart", "w", encoding="utf-8") as f:
               for name, value in values.items():
-                  f.write(f"const {name} = {json.dumps(value)};\n")
+                  f.write(f"const {name} = {json.dumps(value)};\\n")
           PY
 
       - name: Install Flutter dependencies
@@ -102,6 +102,23 @@ jobs:
         run: |
           npm --prefix rules-tests install --no-audit --no-fund
           npm --prefix rules-tests test
+
+      - name: Install Android NDK with download retry
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          NDK_VERSION="28.2.13676358"
+          for attempt in 1 2 3; do
+            echo "Installing Android NDK $NDK_VERSION (attempt $attempt/3)"
+            if "$SDKMANAGER" --install "ndk;$NDK_VERSION" && [ -f "$ANDROID_HOME/ndk/$NDK_VERSION/source.properties" ]; then
+              echo "Android NDK installation verified."
+              exit 0
+            fi
+            rm -rf "$ANDROID_HOME/ndk/$NDK_VERSION" "$ANDROID_HOME/.temp"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Android NDK installation failed after 3 attempts."
+          exit 1
 
       - name: Build release APK
         env:
