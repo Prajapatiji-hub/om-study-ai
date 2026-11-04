@@ -6,6 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../services/ai_teacher_service.dart';
 import '../services/adaptive_study_context.dart';
+import '../services/voice_lifecycle.dart';
 import '../theme.dart';
 
 class AiTeacherScreen extends StatefulWidget {
@@ -119,7 +120,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (shouldStopVoiceForLifecycleState(state)) {
       _speech.stop();
       _tts.stop();
       if (mounted) setState(() { _listening = false; _speakingMessage = null; });
