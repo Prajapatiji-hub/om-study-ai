@@ -402,13 +402,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
             if (docs.isEmpty) return _empty(explain);
             final showLoadOlder =
                 _hasMoreOlder && (snapshot.data!.docs.length == 50 || _olderDocs.isNotEmpty);
-            final extraItems = 1 + (showLoadOlder ? 1 : 0) + (_sending ? 1 : 0);
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(12),
-              itemCount: docs.length + extraItems,
+              itemCount: docs.length + 1 + (_sending ? 1 : 0),
               itemBuilder: (context, index) {
-              if (showLoadOlder && index == 0) {
+              if (index == 0 && showLoadOlder) {
                 return Align(
                   alignment: Alignment.center,
                   child: TextButton.icon(
@@ -426,7 +425,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
                   ),
                 );
               }
-              final contentIndex = index - (showLoadOlder ? 1 : 0);
+              if (index == 0) return const SizedBox.shrink();
+              final contentIndex = index - 1;
               if (contentIndex == docs.length) {
                 return _sending
                     ? const Padding(
