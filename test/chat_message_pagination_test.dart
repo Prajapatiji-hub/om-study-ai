@@ -35,5 +35,41 @@ void main() {
       expect(result.map((message) => message.id), ['m5', 'm4', 'm3']);
       expect(result.length, 3);
     });
+    test('returns an empty list when both pages are empty', () {
+      final result = mergeChatMessagePages<_Message>(
+        live: const [],
+        older: const [],
+        id: (message) => message.id,
+        compareDescending: compare,
+      );
+      expect(result, isEmpty);
+    });
+
+    test('prefers the live copy when a document appears in both pages', () {
+      const live = [_Message('m4', 4)];
+      const older = [_Message('m4', 3), _Message('m3', 3)];
+      final result = mergeChatMessagePages(
+        live: live,
+        older: older,
+        id: (message) => message.id,
+        compareDescending: compare,
+      );
+      expect(result.firstWhere((message) => message.id == 'm4').createdAt, 4);
+    });
+
+    test('sorts equal timestamps deterministically through the supplied tie-breaker', () {
+      const live = [_Message('b', 4), _Message('a', 4)];
+      final result = mergeChatMessagePages(
+        live: live,
+        older: const [],
+        id: (message) => message.id,
+        compareDescending: (a, b) {
+          final byTime = compare(a, b);
+          return byTime != 0 ? byTime : b.id.compareTo(a.id);
+        },
+      );
+      expect(result.map((message) => message.id), ['b', 'a']);
+    });
+
   });
 }
