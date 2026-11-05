@@ -93,9 +93,10 @@ export function normalizeImagePrompt(value) {
 
 export function isSafeImageModerationResult(result) {
   const output = typeof result?.response === "string" ? result.response.trim().toLowerCase() : "";
-  // Accept only an explicit safe verdict; unknown or unsafe output fails closed.
-  const firstLine = output.split("\\n", 1)[0].trim();
-  return firstLine === "safe";
+  // Llama Guard's contract is a single-word verdict. Require the complete
+  // trimmed response to be exactly "safe"; never accept a safe prefix plus
+  // a category, newline, or any additional model output.
+  return output === "safe";
 }
 
 export async function generateImageForStudent(env, userId, prompt) {

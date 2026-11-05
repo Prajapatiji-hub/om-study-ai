@@ -101,9 +101,11 @@ test("image prompts are trimmed and strictly bounded", () => {
   assert.throws(() => normalizeImagePrompt(42), /सही प्रारूप/);
 });
 
-test("image moderation fails closed unless Llama Guard explicitly returns safe", () => {
+test("image moderation accepts only the complete safe verdict and fails closed otherwise", () => {
   assert.equal(isSafeImageModerationResult({ response: "safe" }), true);
-  assert.equal(isSafeImageModerationResult({ response: "safe " }), true);
+  assert.equal(isSafeImageModerationResult({ response: " safe " }), true);
+  assert.equal(isSafeImageModerationResult({ response: "unsafe\nS2" }), false);
+  assert.equal(isSafeImageModerationResult({ response: "safe\nS2" }), false);
   assert.equal(isSafeImageModerationResult({ response: "unsafe\\nS2" }), false);
   assert.equal(isSafeImageModerationResult({ response: "safe because maybe" }), false);
   assert.equal(isSafeImageModerationResult({}), false);
