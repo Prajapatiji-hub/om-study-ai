@@ -151,7 +151,7 @@ Test each flow on a clean install and on an existing account:
 - [x] Llama Guard 3 must explicitly classify the prompt as safe; unsafe, malformed or unavailable moderation blocks generation.
 - [x] FLUX.1 [schnell] runs at four steps. The app displays returned image bytes in memory only; no Firestore, public bucket or R2 storage is used.
 - [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
-- [ ] Build #174 CI must pass before this source patch is considered build-verified. Build #173 does not contain image generation.
+- [ ] Build #174 failed in `Check free AI Worker JavaScript`: the moderation parser's escaped-whitespace check rejected the test's safe-with-trailing-whitespace case. The parser now accepts only an explicit `safe` first line and the test uses a literal whitespace case; Build #175 must validate this correction.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
