@@ -13,6 +13,7 @@ import 'practice_quiz.dart';
 import 'quiz_history.dart';
 import 'mistake_review.dart';
 import 'ai_teacher.dart';
+import 'image_generator.dart';
 
 class Module {
   final String title;
@@ -27,6 +28,7 @@ const kModules = [
   Module('सरकारी परीक्षा', Icons.account_balance, goal: 'govt'),
   Module('ITI और हुनर', Icons.electrical_services, goal: 'iti'),
   Module('AI टीचर', Icons.smart_toy, ready: true),
+  Module('AI चित्र बनाएँ', Icons.image_outlined, ready: true),
   Module('मेरा स्टडी प्लान', Icons.event_note, ready: true),
   Module('मेरा सिलेबस', Icons.menu_book, ready: true),
   Module('मेरे नोट्स', Icons.edit_note, ready: true),
@@ -51,6 +53,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final Future<void> _init = widget.repo.ensureProfile();
 
   void _open(Module m) {
+    if (m.title == 'AI चित्र बनाएँ') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const ImageGeneratorScreen()));
+      return;
+    }
     final page = m.title == 'AI टीचर'
         ? const AiTeacherScreen()
         : (m.title == 'मेरा सिलेबस'

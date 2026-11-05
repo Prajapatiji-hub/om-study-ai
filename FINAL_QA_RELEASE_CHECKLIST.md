@@ -22,12 +22,12 @@
 
 Latest reviewed source snapshot (5 November 2026; update after each candidate build):
 - PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. PR #21 head is `feature/ai-chat-sessions-and-voice`; PR #22 head is `feature/ai-chat-sessions` and its base is PR #21's head. Do not merge either PR as part of this workflow.
-- Latest verified workflow is Build #171 for commit `719bc9b7f42c59666684d9a76ac077ed10a4bda3` (run ID `41791731915`); the single build job and all 18 reported steps completed successfully, including Firebase configuration check, Worker JS checks, Flutter Analyze, Flutter tests, Firestore Emulator tests, Android NDK setup and release APK build.
-- Build #171 artifact `om-study-ai-apk` is present and not expired: 25,928,449 bytes; SHA-256 `c12c23fa2a0d75aa5e44e11ca10300ffc7c6fadc93a643c0456eed80528cfaab`; created 4 November 2026 and expires 2 February 2027. This is a CI candidate, not physical-device acceptance.
-- Build #171 APK extracted from that artifact: 54,492,681 bytes; SHA-256 `4cfad55eb29237f6622e554222fa836e2ddb8a8767303e4a311ecc919b9be398`. The next source commit must produce a new workflow/artifact before it can be called the latest APK.
-- Adaptive quiz context already includes setup answers, recent quiz mistakes/scores and bounded prior AI Teacher questions. Build #172 (run ID `41960653831`) failed at `Analyze Flutter source` because the newly added test description used an unescaped apostrophe in a single-quoted Dart string. The analyzer stopped before Flutter tests, Firestore Emulator tests, APK build and artifact upload; no artifact was created. The test string is corrected in the follow-up source commit, which triggers Build #173.
-- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. Owner-only Rules source and Emulator tests exist; production Rules are NOT published.
+- Latest verified workflow is Build #173 for commit `6413c0893b3abc5cc7a2f126db0aa2346d804757` (run ID `41960890418`); the single build job and all 18 reported steps completed successfully, including Firebase configuration check, Worker JS checks, Flutter Analyze, Flutter tests, Firestore Emulator tests, Android NDK setup, release APK build and artifact upload.
+- Build #173 artifact `om-study-ai-apk` is present and not expired: 25,933,060 bytes; SHA-256 `3451011f02cba8591312248bc05ad7c0fe70e74fc9de8892aa6bde1b289a01aa`; created 5 November 2026 and expires 3 February 2027. The extracted APK is 54,492,681 bytes; SHA-256 `ef06a27ace9af9a49ab3375a1ee0911262c90ec5cf283bc147da50bdddd39617`. This is a CI candidate, not physical-device acceptance.
+- Build #172 failed only at Flutter Analyze because of an apostrophe in a newly added test description; the test was corrected and Build #173 passed Analyze, all Flutter tests and Firestore Emulator tests. Build #172 produced no artifact.
+- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. The current source also passes that same student's summary, strengths, weak topics and preferred style into adaptive quiz generation; Build #173 validates the new unit tests.
 - Signup setup gating is wired through the required-setup marker; fresh signup, restart/resume and existing-account preservation still require physical-device acceptance.
+- The image-generation source patch is being added after Build #173: Llama Guard moderation, FLUX.1 schnell (4 steps), UID rate limiting, no image storage and no paid fallback. It is not in Build #173 and is not deployed; the next workflow must validate the patch.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
 ## 1A. Latest focused audit findings (5 November 2026)
@@ -146,16 +146,16 @@ Test each flow on a clean install and on an existing account:
 
 ## 9. Image generation (only when explicitly requested)
 
-- [ ] STATUS: Image generation remains intentionally NOT IMPLEMENTED / DISABLED. No provider has been approved and verified for a dependable free quota, per-user server-side limits, safe private storage and deletion. Do not add a client-side mock or silently call a paid provider.
-- [ ] Implement only after selecting a model/API that is genuinely usable on the free tier and documenting its quota, licensing and safety constraints.
-- [ ] Text chat never generates an image unless the user explicitly asks.
-- [ ] Validate prompt length, image dimensions, step count and request rate on the server.
-- [ ] Authenticate every request and enforce per-user quota; client-side-only limits are not sufficient.
-- [ ] Handle provider quota exhaustion and service errors without charging or switching to a paid provider.
-- [ ] Do not store generated images in a public bucket by default; define private storage, retention and deletion behavior first.
-- [ ] Test prompt safety, disallowed content handling, image response integrity, slow network and retry.
-- [ ] If reliable quota enforcement/storage/safety cannot be delivered within free constraints, leave feature disabled and mark BLOCKED rather than shipping an unsafe stub.
-
+- [x] Source implementation adds a dedicated dashboard screen; image generation occurs only after an explicit Generate tap and never from ordinary text chat.
+- [x] Worker authenticates the Firebase ID token, applies a separate UID-keyed limit of one request per minute, and fails closed if the rate-limit binding is missing. Cloudflare limits are approximate per edge location, not a strict global/daily quota.
+- [x] Llama Guard 3 must explicitly classify the prompt as safe; unsafe, malformed or unavailable moderation blocks generation.
+- [x] FLUX.1 [schnell] runs at four steps. The app displays returned image bytes in memory only; no Firestore, public bucket or R2 storage is used.
+- [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
+- [ ] Build #174 CI must pass before this source patch is considered build-verified. Build #173 does not contain image generation.
+- [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
+- [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
+- [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
+ 
 ## 10. Syllabus, notes, resources and official content
 
 - [ ] Syllabus catalog is populated only from traceable official sources and includes source URL, authority, version/date and verification status.

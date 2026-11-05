@@ -32,7 +32,7 @@ test("unexpected provider errors do not leak raw details", () => {
   assert.equal(result.message.includes("sensitive"), false);
 });
 
-import { checkUserRateLimit, isValidQuizResponse, readJsonRequest } from "./index.js";
+import { checkUserRateLimit, generateImageForStudent, isSafeImageModerationResult, isValidQuizResponse, normalizeImagePrompt, readJsonRequest } from "./index.js";
 
 test("rate limiter keys usage by authenticated UID and allows under-limit requests", async () => {
   let received;
@@ -91,4 +91,83 @@ test("Worker handles OPTIONS and unsupported methods without authentication", as
   const get = await Worker.fetch(new Request("https://worker.example.test", { method: "GET" }), {});
   assert.equal(options.status, 200);
   assert.equal(get.status, 405);
+});
+
+
+test("image prompts are trimmed and strictly bounded", () => {
+  assert.equal(normalizeImagePrompt("  Ohm's law circuit diagram  "), "Ohm's law circuit diagram");
+  assert.throws(() => normalizeImagePrompt("  "), /1 से 500/);
+  assert.throws(() => normalizeImagePrompt("x".repeat(501)), /1 से 500/);
+  assert.throws(() => normalizeImagePrompt(42), /सही प्रारूप/);
+});
+
+test("image moderation fails closed unless Llama Guard explicitly returns safe", () => {
+  assert.equal(isSafeImageModerationResult({ response: "safe" }), true);
+  assert.equal(isSafeImageModerationResult({ response: "safe\\n" }), true);
+  assert.equal(isSafeImageModerationResult({ response: "unsafe\\nS2" }), false);
+  assert.equal(isSafeImageModerationResult({ response: "maybe safe" }), false);
+  assert.equal(isSafeImageModerationResult({}), false);
+});
+
+test("image generation requires a configured UID limiter and fails closed", async () => {
+  let called = false;
+  const result = await generateImageForStudent({ AI: { run: async () => { called = true; return { response: "safe" }; } } }, "student-a", "study diagram");
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, "rate_limit_unavailable");
+  assert.equal(called, false);
+});
+
+test("blocked image prompts never reach the image model", async () => {
+  const models = [];
+  const result = await generateImageForStudent({
+    AI_IMAGE_RATE_LIMITER: { limit: async ({ key }) => ({ success: key === "student-a" }) },
+    AI: { run: async (model) => { models.push(model); return { response: "unsafe\\nS2" }; } },
+  }, "student-a", "unsafe prompt");
+  assert.equal(result.status, 400);
+  assert.deepEqual(models, ["@cf/meta/llama-guard-3-8b"]);
+});
+
+test("safe image prompts use only FLUX Schnell with four steps and no paid fallback", async () => {
+  const calls = [];
+  const result = await generateImageForStudent({
+    AI_IMAGE_RATE_LIMITER: { limit: async ({ key }) => ({ success: key === "student-a" }) },
+    AI: { run: async (model, input) => {
+      calls.push({ model, input });
+      return model === "@cf/meta/llama-guard-3-8b"
+        ? { response: "safe" }
+        : { image: "A".repeat(120) };
+    } },
+  }, "student-a", "Ohm law circuit diagram");
+  assert.equal(result.status, 200);
+  assert.equal(result.body.model, "@cf/black-forest-labs/flux-1-schnell");
+  assert.equal(result.body.mimeType, "image/jpeg");
+  assert.equal(calls[1].model, "@cf/black-forest-labs/flux-1-schnell");
+  assert.equal(calls[1].input.steps, 4);
+  assert.equal(calls[1].input.prompt.includes("Ohm law circuit diagram"), true);
+  assert.equal(calls.length, 2);
+});
+
+test("image rate limits reject a user before moderation or generation", async () => {
+  let calls = 0;
+  const result = await generateImageForStudent({
+    AI_IMAGE_RATE_LIMITER: { limit: async () => ({ success: false }) },
+    AI: { run: async () => { calls++; return { response: "safe" }; } },
+  }, "student-a", "study diagram");
+  assert.equal(result.status, 429);
+  assert.equal(calls, 0);
+});
+
+test("image model failures return a free-only error without trying another provider", async () => {
+  const models = [];
+  const result = await generateImageForStudent({
+    AI_IMAGE_RATE_LIMITER: { limit: async () => ({ success: true }) },
+    AI: { run: async (model) => {
+      models.push(model);
+      if (model === "@cf/meta/llama-guard-3-8b") return { response: "safe" };
+      throw new Error("quota exhausted");
+    } },
+  }, "student-a", "study diagram");
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, "image_quota_or_provider_unavailable");
+  assert.deepEqual(models, ["@cf/meta/llama-guard-3-8b", "@cf/black-forest-labs/flux-1-schnell"]);
 });
