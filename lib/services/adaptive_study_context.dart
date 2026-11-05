@@ -26,7 +26,7 @@ String buildAdaptiveQuizContext({
       parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.join(', ')}');
     }
   }
-  
+
   // The student's editable private memory is shared with the AI Teacher.
   // Include the same bounded profile in quiz generation so manual strengths,
   // weak topics and explanation preferences are not lost between features.

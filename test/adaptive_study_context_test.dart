@@ -37,7 +37,7 @@ void main() {
       expect(context, contains('1/3 सही'));
     });
 
-    test('includes the same student's editable AI Study Memory in quiz context', () {
+    test("includes the same student's editable AI Study Memory in quiz context", () {
       final context = buildAdaptiveQuizContext(
         setupAnswers: {'language': 'hi'},
         quizAttempts: [],
