@@ -37,6 +37,43 @@ void main() {
       expect(context, contains('1/3 सही'));
     });
 
+    test('includes the same student's editable AI Study Memory in quiz context', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {'language': 'hi'},
+        quizAttempts: [],
+        curatedStudyMemory: {
+          'summary': 'मैं कक्षा 12 की बोर्ड परीक्षा की तैयारी कर रहा हूँ।',
+          'strengths': ['गणित', 'भौतिकी'],
+          'weakTopics': ['त्रिकोणमिति', 'ओम का नियम'],
+          'preferredStyle': 'आसान हिंदी और चरण-दर-चरण उदाहरण',
+        },
+      );
+
+      expect(context, contains('संपादित AI Study Memory'));
+      expect(context, contains('कक्षा 12'));
+      expect(context, contains('मजबूत विषय'));
+      expect(context, contains('त्रिकोणमिति'));
+      expect(context, contains('ओम का नियम'));
+      expect(context, contains('चरण-दर-चरण'));
+    });
+
+    test('bounds oversized editable memory and ignores malformed memory fields', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [],
+        curatedStudyMemory: {
+          'summary': 'स' * 5000,
+          'strengths': ['गणित', 42, 'भौतिकी'],
+          'weakTopics': 'यह सूची नहीं है',
+          'preferredStyle': 'ह' * 500,
+        },
+      );
+
+      expect(context.length, lessThanOrEqualTo(3000));
+      expect(context, contains('गणित'));
+      expect(context, isNot(contains('42')));
+    });
+
     test('ignores old responses without topic and keeps output bounded', () {
       final context = buildAdaptiveQuizContext(
         setupAnswers: {},

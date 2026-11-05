@@ -9,6 +9,7 @@ bool isIncorrectQuizResponse(Map response) {
 String buildAdaptiveQuizContext({
   required Map<String, dynamic> setupAnswers,
   required List<Map<String, dynamic>> quizAttempts,
+  Map<String, dynamic> curatedStudyMemory = const {},
   List<String> priorTeacherQuestions = const [],
   List<String> legacyTeacherQuestions = const [],
 }) {
@@ -24,6 +25,36 @@ String buildAdaptiveQuizContext({
     } else if (value is List && value.isNotEmpty) {
       parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.join(', ')}');
     }
+  }
+  
+  // The student's editable private memory is shared with the AI Teacher.
+  // Include the same bounded profile in quiz generation so manual strengths,
+  // weak topics and explanation preferences are not lost between features.
+  final memorySummary = curatedStudyMemory['summary'];
+  if (memorySummary is String && memorySummary.trim().isNotEmpty) {
+    final clean = memorySummary.trim();
+    parts.add('विद्यार्थी की संपादित AI Study Memory: ${clean.length > 900 ? '${clean.substring(0, 900)}…' : clean}');
+  }
+  for (final entry in [
+    ('मजबूत विषय (विद्यार्थी की पसंद)', curatedStudyMemory['strengths']),
+    ('विद्यार्थी द्वारा बताए कमजोर विषय — पहले अभ्यास दें', curatedStudyMemory['weakTopics']),
+  ]) {
+    final values = entry.$2;
+    if (values is List) {
+      final clean = values
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .take(8)
+          .map((value) => value.length > 60 ? '${value.substring(0, 60)}…' : value)
+          .toList();
+      if (clean.isNotEmpty) parts.add('${entry.$1}: ${clean.join(', ')}');
+    }
+  }
+  final preferredStyle = curatedStudyMemory['preferredStyle'];
+  if (preferredStyle is String && preferredStyle.trim().isNotEmpty) {
+    final clean = preferredStyle.trim();
+    parts.add('समझाने की पसंदीदा शैली: ${clean.length > 240 ? '${clean.substring(0, 240)}…' : clean}');
   }
 
   final weakTopics = <String, int>{};

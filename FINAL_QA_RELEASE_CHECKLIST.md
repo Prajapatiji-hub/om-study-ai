@@ -20,17 +20,17 @@
 
 ## 1. Release status snapshot
 
-Latest reviewed source snapshot (4 November 2026; update after each candidate build):
-- PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. Do not merge either PR as part of this workflow.
-- Build #163 succeeded for commit `2933a2ff2a940227582e9778ee5bca2fe4bca81d`; all workflow steps passed, including Worker JavaScript checks, Flutter Analyze, Flutter Tests, Firestore Emulator tests, Android NDK installation and Release APK build.
-- Build #163 artifact `om-study-ai-apk`: 25,923,929 bytes; SHA-256 `41817061510dddeb340255d8e36ac7bad330d287eb843cea4e51a23b134525f0`; expires 2 February 2027. Workflow: `https://github.com/PrajapatiJi-hub/om-study-ai/actions/runs/41784298236`. This is CI evidence, not physical-device acceptance.
-- Build #162 was cancelled by GitHub Actions concurrency; it is not a code-test failure and produced no artifact. Build #163 is the latest verified APK.
-- Adaptive quiz context and weak-topic ranking are implemented; automated coverage exists in `test/adaptive_study_context_test.dart`. Device behavior remains NOT TESTED.
-- Editable AI Study Memory is implemented in Profile and loaded into AI Teacher context at `users/{uid}/ai_study_memory/profile`. Owner-only Rules source and emulator tests exist; production Rules are NOT published.
-- Signup setup gating is wired through Dashboard's `_setupRequired` marker; test fresh signup, resume after force-close, and existing-account preservation on a physical device.
-- Worker deployment, live Firestore Rules publication, final main-branch APK, and complete physical-device acceptance remain release gates.
+Latest reviewed source snapshot (5 November 2026; update after each candidate build):
+- PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. PR #21 head is `feature/ai-chat-sessions-and-voice`; PR #22 head is `feature/ai-chat-sessions` and its base is PR #21's head. Do not merge either PR as part of this workflow.
+- Latest verified workflow is Build #171 for commit `719bc9b7f42c59666684d9a76ac077ed10a4bda3` (run ID `41791731915`); the single build job and all 18 reported steps completed successfully, including Firebase configuration check, Worker JS checks, Flutter Analyze, Flutter tests, Firestore Emulator tests, Android NDK setup and release APK build.
+- Build #171 artifact `om-study-ai-apk` is present and not expired: 25,928,449 bytes; SHA-256 `c12c23fa2a0d75aa5e44e11ca10300ffc7c6fadc93a643c0456eed80528cfaab`; created 4 November 2026 and expires 2 February 2027. This is a CI candidate, not physical-device acceptance.
+- Build #171 APK extracted from that artifact: 54,492,681 bytes; SHA-256 `4cfad55eb29237f6622e554222fa836e2ddb8a8767303e4a311ecc919b9be398`. The next source commit must produce a new workflow/artifact before it can be called the latest APK.
+- Adaptive quiz context already includes setup answers, recent quiz mistakes/scores and bounded prior AI Teacher questions. The current candidate patch additionally wires the same user's editable AI Study Memory (summary, strengths, weak topics and preferred explanation style) into quiz generation; its new unit tests require the next CI run.
+- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. Owner-only Rules source and Emulator tests exist; production Rules are NOT published.
+- Signup setup gating is wired through the required-setup marker; fresh signup, restart/resume and existing-account preservation still require physical-device acceptance.
+- Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
-## 1A. Latest focused audit findings (4 November 2026)
+## 1A. Latest focused audit findings (5 November 2026)
 
 - [x] Chat pagination uses a newest-first query ordered by `createdAt` plus document ID, cursor-based older-page loading, and ID deduplication. Unit tests cover ordering, overlap, live-copy preference and deterministic timestamp ties.
 - [x] Chat history remains scoped below the authenticated user's `users/{uid}` document. Firestore Emulator tests verify owner-only chat and message reads/writes, reject cross-account access, and prohibit message mutation/deletion.

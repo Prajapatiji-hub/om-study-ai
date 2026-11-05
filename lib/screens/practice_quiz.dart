@@ -80,6 +80,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
     Map<String, dynamic> answers = {};
+    Map<String, dynamic> curatedMemory = {};
     final attempts = <Map<String, dynamic>>[];
     final priorQuestions = <String>[];
     final legacyQuestions = <String>[];
@@ -88,6 +89,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
     } catch (_) {
       // Missing setup data must not prevent a practice test.
+    }
+    try {
+      curatedMemory = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Editable memory is optional until the consolidated production Rules are published.
     }
     try {
       final snapshot = await root.collection('quiz_attempts')
@@ -138,6 +144,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     return buildAdaptiveQuizContext(
       setupAnswers: answers,
       quizAttempts: attempts,
+      curatedStudyMemory: curatedMemory,
       priorTeacherQuestions: priorQuestions,
       legacyTeacherQuestions: legacyQuestions,
     );
