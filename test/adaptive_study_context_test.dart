@@ -174,8 +174,11 @@ void main() {
         'responses': List.generate(10, (_) => repeated),
       }));
       expect(summary.length, lessThanOrEqualTo(1200));
-      expect('A very long question about a circuit'.allMatches(summary).length, 1);
-      expect(summary, contains('Electrical basics'));
+      // The stored question is truncated to 140 characters, so the phrase can
+      // naturally appear more than once inside that single entry. Count list
+      // separators instead to verify the duplicate response was removed.
+      expect(summary.split(' | '), hasLength(1));
+      expect(summary, contains('Electrical basics (30 गलत)'));
     });
 
     test('returns empty summary when attempts have no valid quiz history', () {
