@@ -50,16 +50,8 @@ class ImageGenerationService {
       ));
     }
 
-    final encoded = data['image'];
-    if (encoded is! String || encoded.isEmpty || encoded.length > 8000000) {
-      throw StateError('चित्र सही प्रारूप में नहीं मिला। फिर कोशिश करें।');
-    }
     try {
-      final bytes = base64Decode(encoded);
-      if (bytes.isEmpty || bytes.length > 6000000) {
-        throw StateError('चित्र का आकार स्वीकार्य सीमा से बाहर है।');
-      }
-      return Uint8List.fromList(bytes);
+      return decodeGeneratedImagePayload(data);
     } on FormatException {
       throw StateError('चित्र सही प्रारूप में नहीं मिला। फिर कोशिश करें।');
     }

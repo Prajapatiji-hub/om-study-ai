@@ -127,7 +127,7 @@ Current source contract:
 - Firebase ID token authentication is required; the Worker applies a separate UID-keyed limit of one request per minute (approximate per edge location).
 - Llama Guard must return the complete trimmed verdict `safe`; malformed, unsafe or unavailable moderation blocks generation.
 - FLUX.1 [schnell] is fixed at four steps; there is no Gemini, third-party or paid fallback.
-- Worker validates a bounded base64 image response; Flutter decodes at most 6 MB. The image is held in memory on the generator screen and is not saved to Firestore or public storage.
+- Worker validates a bounded base64 image response; Flutter requires `image/jpeg`, validates base64, checks the JPEG SOI signature, and decodes at most 6 MB. The image is held in memory on the generator screen and is not saved to Firestore or public storage.
 - Workers AI free usage is shared across the account; quota exhaustion must return a clear retry-later error. Never upgrade or enable billing.
 
 Tests before production use:
@@ -136,7 +136,7 @@ Tests before production use:
 - [ ] Prompt lengths 1, 500 and 501 are tested; Worker-side validation must remain authoritative.
 - [ ] Only the exact trimmed `safe` moderation verdict proceeds; unsafe, suffix, malformed and moderation-error cases block generation.
 - [ ] Confirm the image model is called with four steps only after moderation succeeds.
-- [ ] Test valid image payload, malformed base64, invalid/oversized image payload, quota exhaustion, timeout and retry.
+- [ ] Test valid JPEG payload, wrong MIME type, malformed base64, non-JPEG bytes, oversized payload, quota exhaustion, timeout and retry.
 - [ ] Confirm no paid provider fallback, automatic billing change or public image storage exists.
 - [ ] Review model terms/licensing and data-retention terms before public release.
 - [ ] Deploy the Worker only after explicit owner approval, then test the actual deployed version and rate-limit bindings.
