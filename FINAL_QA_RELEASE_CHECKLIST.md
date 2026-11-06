@@ -28,7 +28,7 @@ Latest reviewed source snapshot (6 November 2026; update after each candidate bu
 - Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. The same student's summary, strengths, weak topics and preferred style also feed adaptive quiz generation. This is source/CI-verified, not yet production-Rules-verified.
 - New-account Study Setup gating and existing-account preservation are implemented in source; fresh signup, restart/resume and existing-account behavior still require physical-device acceptance.
 - Image-generation source is included: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
-- The next source change restores the complete quiz JSON envelope and all field limits in the Worker system instruction, with regression tests against the app's validator; Build #178 will validate this change.
+- Build #178 failed in `Check free AI Worker JavaScript` before any APK steps: `node --check` found a syntax error in the newly added JSON schema literal because its quotes were over-escaped. No artifact was created; Flutter/Android steps were skipped. The correction now builds the example with `JSON.stringify`, uses a real newline join, and adds an exact-shape regression assertion; Build #179 will validate it.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
 ## 1A. Latest focused audit findings (6 November 2026)
@@ -40,7 +40,8 @@ Latest reviewed source snapshot (6 November 2026; update after each candidate bu
 - [x] AI Worker checks authenticated Firebase UID against separate Cloudflare Rate Limiting bindings: tutor/explanation 20 calls per 60 seconds and quiz generation 5 calls per 60 seconds. Missing/failed bindings fail closed. Limits are approximate and independent per Cloudflare edge location, not a strict global quota; do not describe them as a hard billing cap. Bindings are configured in `workers/wrangler.toml`; this source change does NOT deploy the Worker.
 - [x] Worker unit tests cover rate-limit allow/deny/fail-closed behavior, UID keying, request-size and malformed JSON handling, and quiz schema rejection (count, duplicate options, blank title, invalid answer index). Existing provider error classification tests remain. End-to-end signed Firebase token tests and deployed binding smoke tests remain release gates.
 - [x] Build #177 validates that onboarding, editable memory, quiz history and prior-chat context are sent as a separate untrusted user-role JSON message rather than system instructions. Tests verify role separation, JSON preservation, language selection, quiz request details and explanation fields.
-- [x] Worker quiz generation uses a strict JSON envelope and field bounds matching `isValidQuizResponse`; Build #178 adds regression assertions for the title/questions/options/answerIndex schema and requested question count.
+- [x] Build #178 root cause was isolated from the job log: `node --check` rejected the over-escaped schema example at `workers/index.js`; no APK was produced and all downstream steps were skipped. The source correction and exact-shape regression test are included in the next commit.
+- [x] Worker quiz generation now constructs its exact JSON response envelope with `JSON.stringify` and documents the same title/questions/options/answerIndex and field bounds enforced by `isValidQuizResponse`; Build #179 must verify the syntax and regression test.
 
 ## 2. Build, source and dependency checks
 

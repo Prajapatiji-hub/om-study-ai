@@ -222,11 +222,18 @@ test("quiz and explanation request details remain user messages while schema sta
   assert.match(quizRequest, /Ohm's law/);
   assert.match(quizRequest, /5/);
   const quizSystem = systemInstruction("generate_quiz", "en");
+  const expectedShape = JSON.stringify({
+    title: "string",
+    questions: [{
+      question: "string",
+      options: ["string", "string", "string", "string"],
+      answerIndex: 0,
+      explanation: "string",
+      topic: "string",
+    }],
+  });
   assert.match(quizSystem, /JSON/);
-  assert.match(quizSystem, /"title"/);
-  assert.match(quizSystem, /"questions"/);
-  assert.match(quizSystem, /"options"/);
-  assert.match(quizSystem, /"answerIndex"/);
+  assert.ok(quizSystem.includes(expectedShape));
   assert.match(quizSystem, /चार अलग/);
   assert.match(quizSystem, /माँगी गई संख्या के बराबर/);
   assert.equal(quizSystem.includes("Ohm's law"), false);
