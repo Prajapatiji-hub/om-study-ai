@@ -20,18 +20,18 @@
 
 ## 1. Release status snapshot
 
-Latest reviewed source snapshot (5 November 2026; update after each candidate build):
-- PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. PR #21 head is `feature/ai-chat-sessions-and-voice`; PR #22 head is `feature/ai-chat-sessions` and its base is PR #21's head. Do not merge either PR as part of this workflow.
-- Latest verified workflow is Build #175 for commit `823734be0cf94a156b71b9f9042eebe9ed75cd48` (run ID `41962230903`). Its single build job and all 18 reported steps completed successfully: Firebase configuration check, Worker JS checks and Wrangler dry-run, Java/Flutter setup, Android/Firebase source generation, dependency install, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, Android NDK setup, release APK build and artifact upload.
-- Build #175 artifact `om-study-ai-apk` is present and not expired: 26,026,202 bytes; artifact ZIP SHA-256 `0367a17d92e0899cb575a27364cdaa7be91e12c0e3dec6801b82191627e3d639`; created 5 November 2026 and expires 3 February 2027 at 03:32:27 UTC. The extracted APK is 54,771,249 bytes; SHA-256 `faf2e02556a3b0fc900eab31cf0493c4b62552337fe1d959e9e8da24225e2c9e`. This is a CI candidate, not physical-device acceptance.
-- Build #174 failed in `Check free AI Worker JavaScript`: the moderation test rejected a safe verdict with trailing whitespace. Commit #175 adjusted the parser/test and all Worker checks then passed; Build #175 produced the APK above.
+Latest reviewed source snapshot (6 November 2026; update after each candidate build):
+- PR #21 and PR #22 remain open Draft; PR #22 is stacked on PR #21. PR #21 head is `feature/ai-chat-sessions-and-voice`; PR #22 head is `feature/ai-chat-sessions` and its base is PR #21's head. PR #22 head and the current feature branch are `2a8e7342a4ed6f43d4fecb28e1169dd696af06aa`. Do not merge either PR as part of this workflow.
+- Latest verified workflow is Build #176 for commit `2a8e7342a4ed6f43d4fecb28e1169dd696af06aa` (run ID `41963728201`). Its single build job and all 18 reported steps completed successfully, including Worker checks, Wrangler dry-run, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, release APK build and artifact upload.
+- Build #176 artifact `om-study-ai-apk` (artifact ID `13387260895`) is present and not expired: 26,026,196 bytes; artifact ZIP SHA-256 `a380170140297915e3c2c334eca1f453a0473d926f35dda69856420c4de90c18`; created 5 November 2026 and expires 3 February 2027 at 03:47:01 UTC. The extracted APK is 54,771,249 bytes; SHA-256 `c7fc8a68dbc96911a183571aad704816469f98ff1c9fcb96aa1115d10a3af427`. This is a CI candidate, not physical-device acceptance.
+- Build #176 validates the strict image-moderation rule: only a complete trimmed `safe` verdict is accepted; appended categories, newlines and escaped suffixes are rejected. Worker, Flutter and Firestore Emulator checks all passed.
 - Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. The same student's summary, strengths, weak topics and preferred style also feed adaptive quiz generation. This is source/CI-verified, not yet production-Rules-verified.
 - New-account Study Setup gating and existing-account preservation are implemented in source; fresh signup, restart/resume and existing-account behavior still require physical-device acceptance.
-- Build #175 includes the requested image-generation source: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
-- This commit tightens moderation to accept only a complete trimmed `safe` verdict and adds tests for real newline/category suffixes and literal escaped suffixes. Build #176 must validate this follow-up.
+- Image-generation source is included: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
+- The next source change moves saved study context into a separate untrusted user-role message instead of appending it to the system instruction. It adds Worker tests for prompt-injection separation and preserves language, quiz and explanation request handling; Build #177 will validate this change.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
-## 1A. Latest focused audit findings (5 November 2026)
+## 1A. Latest focused audit findings (6 November 2026)
 
 - [x] Chat pagination uses a newest-first query ordered by `createdAt` plus document ID, cursor-based older-page loading, and ID deduplication. Unit tests cover ordering, overlap, live-copy preference and deterministic timestamp ties.
 - [x] Chat history remains scoped below the authenticated user's `users/{uid}` document. Firestore Emulator tests verify owner-only chat and message reads/writes, reject cross-account access, and prohibit message mutation/deletion.
@@ -39,6 +39,7 @@ Latest reviewed source snapshot (5 November 2026; update after each candidate bu
 - [ ] Real-device voice acceptance is still required: first-time permission prompt, deny once, permanently deny/settings recovery, no speech after backgrounding, and microphone unavailable/error behavior.
 - [x] AI Worker checks authenticated Firebase UID against separate Cloudflare Rate Limiting bindings: tutor/explanation 20 calls per 60 seconds and quiz generation 5 calls per 60 seconds. Missing/failed bindings fail closed. Limits are approximate and independent per Cloudflare edge location, not a strict global quota; do not describe them as a hard billing cap. Bindings are configured in `workers/wrangler.toml`; this source change does NOT deploy the Worker.
 - [x] Worker unit tests cover rate-limit allow/deny/fail-closed behavior, UID keying, request-size and malformed JSON handling, and quiz schema rejection (count, duplicate options, blank title, invalid answer index). Existing provider error classification tests remain. End-to-end signed Firebase token tests and deployed binding smoke tests remain release gates.
+- [x] Worker separates onboarding, editable memory, quiz history and prior-chat context from system instructions by sending it as a separate untrusted user-role JSON message. The system prompt explicitly refuses instructions embedded in that context; tests verify role separation, JSON preservation, language selection, quiz request details and explanation fields. Build #177 must validate the change.
 
 ## 2. Build, source and dependency checks
 
@@ -152,8 +153,8 @@ Test each flow on a clean install and on an existing account:
 - [x] Llama Guard 3 must explicitly classify the prompt as safe; unsafe, malformed or unavailable moderation blocks generation.
 - [x] FLUX.1 [schnell] runs at four steps. The app displays returned image bytes in memory only; no Firestore, public bucket or R2 storage is used.
 - [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
-- [x] Build #175 passed the Worker JavaScript checks after the Build #174 trailing-whitespace moderation-test failure was fixed; the release APK and all Flutter/Firestore Emulator checks also passed.
-- [ ] Current follow-up hardening requires the entire trimmed Llama Guard response to equal `safe`; tests reject both actual newline/category suffixes and literal escaped suffixes. Build #176 must validate this exact-safe-only rule.
+- [x] Build #176 passed Worker JavaScript checks, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, release APK build and artifact upload.
+- [x] Build #176 validates that the entire trimmed Llama Guard response must equal `safe`; tests reject actual newline/category suffixes and literal escaped suffixes.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
