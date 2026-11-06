@@ -18,3 +18,11 @@ bool hasCompletedRequiredStudySetup(
 ) =>
     visibleQuestionIds.isNotEmpty &&
     firstUnansweredStudySetupQuestionIndex(visibleQuestionIds, answers) == -1;
+
+/// A missing profile alone does not prove that an account is new. Existing
+/// setup answers must be preserved and must not be replaced by a new-user gate.
+bool shouldCreateRequiredStudySetupMarker({
+  required bool profileExists,
+  required bool setupAnswersExist,
+}) =>
+    !profileExists && !setupAnswersExist;

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'study_memory_validator.dart';
+import 'study_setup_state.dart';
 
 /// All private data lives under users/{uid}. uid comes from the signed-in user.
 class UserRepo {
@@ -22,7 +23,21 @@ class UserRepo {
     // because the profile write succeeded but the marker write failed.
     await _db.runTransaction((transaction) async {
       final snap = await transaction.get(_userDoc);
+      final setupSnap = await transaction.get(_answersDoc);
       if (snap.exists) return;
+
+      // A saved setup document is evidence of an existing learner, even if a
+      // legacy profile document is missing. Preserve it and restore the
+      // profile's goal/language summary without forcing first-time onboarding.
+      final savedAnswers = setupSnap.data() ?? <String, dynamic>{};
+      final rawGoals = savedAnswers['goals'];
+      final savedGoals = rawGoals is List
+          ? rawGoals.whereType<String>().toList()
+          : <String>[];
+      final rawLanguage = savedAnswers['language'];
+      final savedLanguage = const ['hi', 'en', 'hinglish'].contains(rawLanguage)
+          ? rawLanguage as String
+          : 'hi';
 
       transaction.set(_userDoc, {
         'uid': uid,
@@ -30,15 +45,22 @@ class UserRepo {
             ? 'विद्यार्थी'
             : user.displayName!.trim(),
         'email': user.email ?? '',
-        'language': 'hi',
-        'selectedGoals': <String>[],
+        'language': savedLanguage,
+        'selectedGoals': savedGoals,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // Existing profiles are deliberately left untouched.
-      transaction.set(_answersDoc, {
-        '_setupRequired': true,
-        '_setupCreatedAt': FieldValue.serverTimestamp(),
-      });
+
+      // Only a genuinely new account (neither profile nor saved setup) gets
+      // the required marker. Both writes remain atomic.
+      if (shouldCreateRequiredStudySetupMarker(
+        profileExists: snap.exists,
+        setupAnswersExist: setupSnap.exists,
+      )) {
+        transaction.set(_answersDoc, {
+          '_setupRequired': true,
+          '_setupCreatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     }).timeout(const Duration(seconds: 15));
   }
 
