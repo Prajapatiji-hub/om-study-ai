@@ -116,3 +116,73 @@ void main() {
     });
   });
 }
+
+  group('AI Teacher recent quiz learning summary', () {
+    test('includes recent scores and ranks only explicitly incorrect topics', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'score': 1,
+          'total': 3,
+          'responses': [
+            {'question': 'Ohm law first', 'topic': 'Ohm Law', 'selectedIndex': 0, 'correctIndex': 1},
+            {'question': 'Ohm law second', 'topic': 'Ohm Law', 'selectedIndex': 1, 'correctIndex': 2},
+            {'question': 'Correct math', 'topic': 'Mathematics', 'selectedIndex': 1, 'correctIndex': 1},
+          ],
+        },
+        {
+          'score': 2,
+          'total': 3,
+          'responses': [
+            {'question': 'Math mistake', 'topic': 'Mathematics', 'selectedIndex': 0, 'correctIndex': 2},
+            {'question': 'Malformed', 'topic': 'Unknown', 'selectedIndex': '0', 'correctIndex': 1},
+          ],
+        },
+      ]);
+
+      expect(summary, contains('1/3 सही'));
+      expect(summary, contains('2/3 सही'));
+      expect(summary, contains('Ohm Law (2 गलत)'));
+      expect(summary, contains('Mathematics (1 गलत)'));
+      expect(summary.indexOf('Ohm Law'), lessThan(summary.indexOf('Mathematics')));
+      expect(summary, contains('Ohm law first'));
+      expect(summary, isNot(contains('Correct math')));
+      expect(summary, isNot(contains('Unknown')));
+    });
+
+    test('uses a legacy attempt topic when a wrong response has no topic', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'topic': 'Physics',
+          'responses': [
+            {'question': 'Legacy physics question', 'selectedIndex': 0, 'correctIndex': 1},
+          ],
+        },
+      ]);
+      expect(summary, contains('Physics (1 गलत)'));
+      expect(summary, contains('Legacy physics question'));
+    });
+
+    test('deduplicates repeated question text and keeps context bounded', () {
+      final repeated = {
+        'question': 'A very long question about a circuit ' * 20,
+        'topic': 'Electrical basics',
+        'selectedIndex': 0,
+        'correctIndex': 1,
+      };
+      final summary = buildRecentQuizLearningSummary(List.generate(5, (i) => {
+        'score': 0,
+        'total': 10,
+        'responses': List.generate(10, (_) => repeated),
+      }));
+      expect(summary.length, lessThanOrEqualTo(1200));
+      expect('A very long question about a circuit'.allMatches(summary).length, 1);
+      expect(summary, contains('Electrical basics'));
+    });
+
+    test('returns empty summary when attempts have no valid quiz history', () {
+      expect(buildRecentQuizLearningSummary([
+        {'responses': [{'selectedIndex': null, 'correctIndex': 1}]},
+        {'score': 4, 'total': 0, 'responses': []},
+      ]), isEmpty);
+    });
+  });

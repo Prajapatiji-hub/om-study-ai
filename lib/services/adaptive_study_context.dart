@@ -109,3 +109,67 @@ String buildAdaptiveQuizContext({
   final context = parts.join('\n');
   return context.length > 3000 ? context.substring(0, 3000) : context;
 }
+
+/// Summarizes only this student's recent, explicitly incorrect quiz responses
+/// for AI Teacher personalization. Correct or malformed answers never create
+/// a weak-topic signal; the result is kept small for the Worker request.
+String buildRecentQuizLearningSummary(
+  List<Map<String, dynamic>> quizAttempts, {
+  int maxAttempts = 3,
+}) {
+  final scoreSummaries = <String>[];
+  final weakTopics = <String, int>{};
+  final mistakes = <String>[];
+  final seenQuestions = <String>{};
+
+  for (final attempt in quizAttempts.take(maxAttempts < 0 ? 0 : maxAttempts)) {
+    final score = attempt['score'];
+    final total = attempt['total'];
+    if (score is num && total is num && total > 0 && score >= 0 && score <= total) {
+      scoreSummaries.add('${score.toInt()}/${total.toInt()} सही');
+    }
+
+    final responses = attempt['responses'];
+    if (responses is! List) continue;
+    for (final raw in responses) {
+      if (raw is! Map || !isIncorrectQuizResponse(raw)) continue;
+
+      final question = raw['question'];
+      if (question is String && question.trim().isNotEmpty) {
+        final clean = question.trim().replaceAll(RegExp(r'\s+'), ' ');
+        if (seenQuestions.add(clean) && mistakes.length < 5) {
+          mistakes.add(clean.length > 140 ? '${clean.substring(0, 140)}…' : clean);
+        }
+      }
+
+      final responseTopic = raw['topic'];
+      final attemptTopic = attempt['topic'];
+      final topic = responseTopic is String && responseTopic.trim().isNotEmpty
+          ? responseTopic.trim()
+          : (attemptTopic is String ? attemptTopic.trim() : '');
+      if (topic.isNotEmpty) {
+        final cleanTopic = topic.length > 60 ? topic.substring(0, 60) : topic;
+        weakTopics[cleanTopic] = (weakTopics[cleanTopic] ?? 0) + 1;
+      }
+    }
+  }
+
+  final parts = <String>[];
+  if (scoreSummaries.isNotEmpty) {
+    parts.add('हाल के टेस्ट के स्कोर (नए से पुराने): ${scoreSummaries.join(', ')}');
+  }
+  final rankedTopics = weakTopics.entries.toList()
+    ..sort((a, b) {
+      final byCount = b.value.compareTo(a.value);
+      return byCount != 0 ? byCount : a.key.compareTo(b.key);
+    });
+  if (rankedTopics.isNotEmpty) {
+    parts.add('क्विज में बार-बार गलत विषय: ${rankedTopics.take(5).map((e) => '${e.key} (${e.value} गलत)').join(', ')}');
+  }
+  if (mistakes.isNotEmpty) {
+    parts.add('हाल के गलत प्रश्न: ${mistakes.join(' | ')}');
+  }
+
+  final summary = parts.join('\n');
+  return summary.length > 1200 ? summary.substring(0, 1200) : summary;
+}

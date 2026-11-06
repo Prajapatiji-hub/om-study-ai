@@ -359,22 +359,10 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     try {
       final attempts = await root.collection('quiz_attempts')
           .orderBy('createdAt', descending: true).limit(3).get();
-      final mistakes = <String>[];
-      for (final attempt in attempts.docs) {
-        final responses = attempt.data()['responses'];
-        if (responses is! List) continue;
-        for (final raw in responses) {
-          if (raw is Map && isIncorrectQuizResponse(raw) &&
-              raw['question'] is String) {
-            mistakes.add(raw['question'] as String);
-            if (mistakes.length >= 5) break;
-          }
-        }
-        if (mistakes.length >= 5) break;
-      }
-      if (mistakes.isNotEmpty) {
-        parts.add('हाल के टेस्ट में गलत हुए प्रश्न (इन विषयों को धैर्य से दोहराएँ): ${mistakes.join(' | ')}');
-      }
+      final quizSummary = buildRecentQuizLearningSummary(
+        attempts.docs.map((doc) => doc.data()).toList(),
+      );
+      if (quizSummary.isNotEmpty) parts.add(quizSummary);
     } catch (_) {
       // Older accounts may not have quiz history or its index yet.
     }
