@@ -40,6 +40,7 @@ import {
   generateImageForStudent,
   isSafeImageModerationResult,
   isValidQuizResponse,
+  normalizeChatHistory,
   normalizeImagePrompt,
   preferredLanguageFromStudyContext,
   readJsonRequest,
@@ -63,6 +64,27 @@ test("request parser rejects oversized and malformed JSON bodies", async () => {
   assert.deepEqual(await readJsonRequest(new Request("https://example.test", { method: "POST", body: "12345" }), 4), { error: "request_too_large", status: 413 });
   assert.deepEqual(await readJsonRequest(new Request("https://example.test", { method: "POST", body: "{" })), { error: "invalid_json", status: 400 });
   assert.deepEqual(await readJsonRequest(new Request("https://example.test", { method: "POST", body: JSON.stringify({ message: "ok" }) })), { data: { message: "ok" } });
+});
+
+test("Worker accepts the app's full eight-message recent chat window", () => {
+  const messages = Array.from({ length: 8 }, (_, index) => ({
+    role: index % 2 === 0 ? "user" : "model",
+    text: ` message ${index} `,
+  }));
+  const history = normalizeChatHistory(messages);
+  assert.equal(history.length, 8);
+  assert.equal(history[0].parts[0].text, "message 0");
+  assert.equal(history[7].parts[0].text, "message 7");
+  assert.deepEqual(normalizeChatHistory(undefined), []);
+});
+
+test("Worker rejects a ninth message and malformed chat history", () => {
+  const valid = { role: "user", text: "hello" };
+  assert.throws(() => normalizeChatHistory(Array.from({ length: 9 }, () => valid)), /बातचीत बहुत लंबी/);
+  assert.throws(() => normalizeChatHistory("invalid"), /बातचीत का प्रारूप/);
+  assert.throws(() => normalizeChatHistory([{ role: "system", text: "hello" }]), /बातचीत का प्रारूप/);
+  assert.throws(() => normalizeChatHistory([{ role: "user", text: "  " }]), /लंबाई सही नहीं/);
+  assert.throws(() => normalizeChatHistory([{ role: "user", text: "x".repeat(1501) }]), /लंबाई सही नहीं/);
 });
 
 const validQuestion = () => ({ question: "2 + 2?", options: ["3", "4", "5", "6"], answerIndex: 1, explanation: "2 + 2 = 4", topic: "arithmetic" });

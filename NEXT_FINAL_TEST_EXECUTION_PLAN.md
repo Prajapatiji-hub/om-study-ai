@@ -70,6 +70,7 @@ Test PR #22 with a disposable account containing at least 120 messages distribut
 - [ ] Create messages with equal or near-equal timestamps; verify deterministic order using the stable tie-breaker.
 - [ ] Load older messages repeatedly until the oldest record; verify no gaps, duplicates, reverse ordering, or skipped boundary item.
 - [ ] Confirm older-page requests use a real cursor (last document snapshot / stable cursor), not merely a larger query limit and full re-read.
+- [ ] Confirm AI Teacher sends at most eight recent chronological messages and the Worker accepts exactly eight while rejecting nine, non-array history, invalid roles, blank text and overlong rows.
 - [ ] Confirm the newest/live message stream remains active while older pages are appended.
 - [ ] Confirm scrolling position does not jump to the bottom when older messages load.
 - [ ] Test empty chat, slow network, offline, timeout, permission-denied, and retry.
@@ -119,26 +120,29 @@ Test PR #22 with a disposable account containing at least 120 messages distribut
 
 **Pass criteria:** authenticated success and safe failure paths work; exhausted free quota returns a clear retry-later response without a paid fallback.
 
-### B7. Image generation decision and guarded test (P1; feature stays disabled until pass)
+### B7. Image generation decision and guarded test (P1; source integrated, production use still gated)
 
-Candidate implementation constraints from the project plan:
-- Cloudflare Workers AI model candidate: `@cf/black-forest-labs/flux-1-schnell`.
-- Server-side invocation candidate: `env.AI.run()`.
-- Prompt limit: 2,048 characters; steps limit: 8.
-- The shared free allocation/quota must be verified against the live account before enabling the feature.
+Current source contract:
+- Prompt is limited to 500 characters in both Flutter and the Worker.
+- Firebase ID token authentication is required; the Worker applies a separate UID-keyed limit of one request per minute (approximate per edge location).
+- Llama Guard must return the complete trimmed verdict `safe`; malformed, unsafe or unavailable moderation blocks generation.
+- FLUX.1 [schnell] is fixed at four steps; there is no Gemini, third-party or paid fallback.
+- Worker validates a bounded base64 image response; Flutter decodes at most 6 MB. The image is held in memory on the generator screen and is not saved to Firestore or public storage.
+- Workers AI free usage is shared across the account; quota exhaustion must return a clear retry-later error. Never upgrade or enable billing.
 
-Tests before enabling:
-- [ ] Text chat alone never starts image generation; explicit user action is required.
-- [ ] Request is authenticated and has server-side per-user quota/rate enforcement.
-- [ ] Prompt length and steps are validated server-side; client-only checks do not count.
-- [ ] Test provider success, malformed image payload, quota exhausted, timeout, and retry.
-- [ ] Verify no paid provider fallback or automatic billing change exists.
-- [ ] Review provider model terms/licensing, content safety, retention, and private storage/deletion design.
-- [ ] Confirm generated images are not written to a public bucket by default.
-- [ ] Confirm quota exhaustion disables/rejects further generation cleanly.
+Tests before production use:
+- [ ] Text chat alone never starts image generation; an explicit Generate tap is required.
+- [ ] Missing/invalid Firebase token is rejected.
+- [ ] Prompt lengths 1, 500 and 501 are tested; Worker-side validation must remain authoritative.
+- [ ] Only the exact trimmed `safe` moderation verdict proceeds; unsafe, suffix, malformed and moderation-error cases block generation.
+- [ ] Confirm the image model is called with four steps only after moderation succeeds.
+- [ ] Test valid image payload, malformed base64, invalid/oversized image payload, quota exhaustion, timeout and retry.
+- [ ] Confirm no paid provider fallback, automatic billing change or public image storage exists.
+- [ ] Review model terms/licensing and data-retention terms before public release.
+- [ ] Deploy the Worker only after explicit owner approval, then test the actual deployed version and rate-limit bindings.
 
-**Pass criteria:** all safety, quota, licensing, and storage checks pass. Otherwise keep the feature disabled and mark BLOCKED; do not ship a fake-success button.
-
+**Pass criteria:** safety, free-quota, licensing and storage checks pass on the deployed Worker and physical device. Until then, keep production use gated and mark device/deployment checks BLOCKED or NOT TESTED.
+ 
 ### B8. Firestore schema and Rules verification (P0 security gate)
 
 - [ ] Inventory every collection/subcollection actually read or written by the candidate code.

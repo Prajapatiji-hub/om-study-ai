@@ -115,7 +115,6 @@ void main() {
       );
     });
   });
-}
 
   group('AI Teacher recent quiz learning summary', () {
     test('includes recent scores and ranks only explicitly incorrect topics', () {
@@ -186,3 +185,4 @@ void main() {
       ]), isEmpty);
     });
   });
+}

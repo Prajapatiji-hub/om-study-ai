@@ -2,7 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const MODEL = "gemini-3.5-flash-lite";
 const MAX_MESSAGE_CHARS = 4000;
-const MAX_HISTORY_ITEMS = 6;
+const MAX_HISTORY_ITEMS = 8;
 const MAX_QUESTION_CHARS = 3000;
 const MAX_ANSWER_CHARS = 1200;
 const MAX_EXPLANATION_CHARS = 2000;
@@ -54,6 +54,21 @@ function cleanText(value, max, fieldName, required = false) {
   const text = value.trim();
   if ((required && !text) || text.length > max) throw new Error(fieldName + " की लंबाई सही नहीं है।");
   return text;
+}
+
+export function normalizeChatHistory(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error("बातचीत का प्रारूप सही नहीं है।");
+  if (value.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
+  return value.slice(-MAX_HISTORY_ITEMS).map((item) => {
+    if (!item || !["user", "model"].includes(item.role)) {
+      throw new Error("बातचीत का प्रारूप सही नहीं है।");
+    }
+    return {
+      role: item.role,
+      parts: [{ text: cleanText(item.text, 1500, "बातचीत का संदेश", true) }],
+    };
+  });
 }
 
 async function verifyFirebaseToken(request, projectId) {
@@ -321,12 +336,7 @@ export default {
         data.count = Number(data.count);
         if (!Number.isInteger(data.count) || data.count < 3 || data.count > 15) throw new Error("प्रश्नों की संख्या 3 से 15 के बीच रखें।");
       }
-      const rawHistory = Array.isArray(data.history) ? data.history : [];
-      if (rawHistory.length > MAX_HISTORY_ITEMS) throw new Error("बातचीत बहुत लंबी है।");
-      history = rawHistory.slice(-6).map((item) => {
-        if (!item || !["user", "model"].includes(item.role)) throw new Error("बातचीत का प्रारूप सही नहीं है।");
-        return { role: item.role, parts: [{ text: cleanText(item.text, 1500, "बातचीत का संदेश", true) }] };
-      });
+      history = normalizeChatHistory(data.history);
     } catch (error) {
       return json({ error: "invalid_argument", message: error.message }, 400);
     }
