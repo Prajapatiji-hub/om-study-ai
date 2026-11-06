@@ -234,7 +234,7 @@ test("quiz and explanation request details remain user messages while schema sta
   });
   assert.match(quizSystem, /JSON/);
   assert.ok(quizSystem.includes(expectedShape));
-  assert.match(quizSystem, /चार अलग/);
+  assert.match(quizSystem, /ठीक 4 अलग/);
   assert.match(quizSystem, /माँगी गई संख्या के बराबर/);
   assert.equal(quizSystem.includes("Ohm's law"), false);
 
