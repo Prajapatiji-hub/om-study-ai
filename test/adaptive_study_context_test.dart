@@ -37,6 +37,16 @@ void main() {
       expect(context, contains('1/3 सही'));
     });
 
+    test('keeps the selected locale in the Worker-recognized field format', () {
+      for (final locale in ['hi', 'en', 'hinglish']) {
+        final context = buildAdaptiveQuizContext(
+          setupAnswers: {'language': locale},
+          quizAttempts: [],
+        );
+        expect(context, 'language: $locale');
+      }
+    });
+
     test("includes the same student's editable AI Study Memory in quiz context", () {
       final context = buildAdaptiveQuizContext(
         setupAnswers: {'language': 'hi'},

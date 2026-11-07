@@ -21,7 +21,12 @@ String buildAdaptiveQuizContext({
   ]) {
     final value = setupAnswers[key];
     if (value is String && value.trim().isNotEmpty && value != '__skipped') {
-      parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.trim()}');
+      if (key == 'language') {
+        // The Worker reads this stable field to choose Hindi, English or Hinglish.
+        parts.add('language: ${value.trim()}');
+      } else {
+        parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.trim()}');
+      }
     } else if (value is List && value.isNotEmpty) {
       parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.join(', ')}');
     }
