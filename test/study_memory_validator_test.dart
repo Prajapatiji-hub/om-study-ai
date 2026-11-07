@@ -28,6 +28,21 @@ void main() {
       expect((result['preferredStyle'] as String).length, 300);
     });
 
+    test('represents a cleared curated memory with explicit empty fields', () {
+      final result = sanitizeStudyMemory(
+        summary: '  ',
+        strengths: const [],
+        weakTopics: const [],
+        preferredStyle: '',
+      );
+      expect(result, {
+        'summary': '',
+        'strengths': <String>[],
+        'weakTopics': <String>[],
+        'preferredStyle': '',
+      });
+    });
+
     test('rejects summary longer than 2000 characters', () {
       expect(() => sanitizeStudyMemory(
         summary: 'a' * 2001, strengths: const [], weakTopics: const [], preferredStyle: '',

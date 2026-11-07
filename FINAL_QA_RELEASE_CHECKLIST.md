@@ -22,14 +22,15 @@
 
 Latest reviewed source snapshot (7 November 2026; update after each candidate build):
 - PR #21 and PR #22 remain open Draft; PR #22 targets PR #21's feature branch. Do not merge either PR as part of this workflow.
-- Latest verified workflow is Build #185 for commit `234e0a58374c952716bc5f5a384428ab45a7f423` (run ID `42157571693`). Its single build job and all 19 reported steps completed successfully, including Worker checks, Wrangler dry-run, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, release APK build and artifact upload.
-- Build #185 artifact `om-study-ai-apk` (artifact ID `13475163232`) is present and not expired: 26,028,721 bytes; artifact ZIP SHA-256 `8702268026db3991540c13a661e33865a0ab7ef3f930f28f284bbc01ab268cab`; created 6 November 2026 at 03:42:40 UTC and expires 4 February 2027 at 03:36:25 UTC. The extracted APK is 54,771,249 bytes; SHA-256 `b88264f0371f0f80de2e335201aa360d142bcb82dc216cf2decbad126ad47d96`. This is a CI candidate, not physical-device acceptance.
-- Build #185 passed Worker checks 23/23, Flutter Analyze with no issues, all 53 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload.
-- The account-lifecycle preservation patch is now CI-verified: an existing saved `onboarding/answers` document is preserved when a legacy profile is missing; its saved goals/language are used to reconstruct the profile, and the new-account setup marker is not written over it.
-- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. The same student's summary, strengths, weak topics and preferred style also feed adaptive quiz generation. This is source/CI-verified, not yet production-Rules-verified.
+- Latest verified workflow is Build #186 for commit `e9002645fff4a43ce38a7da8293623d9e5498de8` (run ID `42330297375`). Its single build job and all 19 reported steps completed successfully, including Worker checks, Wrangler dry-run, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, release APK build and artifact upload.
+- Build #186 artifact `om-study-ai-apk` (artifact ID `13557571554`) is present and not expired: 26,028,806 bytes; artifact ZIP SHA-256 `189719a9f1d989d5ab4aeb9e225d094a9cf65317af04898efa11a9cfce83ed36`; created 7 November 2026 at 02:45:50 UTC and expires 5 February 2027 at 02:39:11 UTC. The extracted APK is 54,771,249 bytes; SHA-256 `64dc0d11719489ad59a02d1d1151da9436b53051bd6a80927bf7538d21b019aa`. This is a CI candidate, not physical-device acceptance.
+- Build #186 passed Worker checks 23/23, Flutter Analyze with no issues, all 54 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload.
+- The account-lifecycle preservation patch is CI-verified: an existing saved `onboarding/answers` document is preserved when a legacy profile is missing; saved goals/language reconstruct the profile, and the new-account setup marker is not written over it.
+- Adaptive quiz context now emits the selected locale as a dedicated `language: hi|en|hinglish` field, matching the Worker language selector. Build #186 passed all 54 Flutter tests with the regression test for all three supported locales.
+- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, surfaced in Profile, and read by AI Teacher. The same student's summary, strengths, weak topics and preferred style also feed adaptive quiz generation. Checked-in rules enforce owner-only bounded writes; production Rules publication and phone isolation tests remain pending.
 - New-account Study Setup gating and existing-account preservation are implemented in source; fresh signup, restart/resume and existing-account behavior still require physical-device acceptance.
 - Image-generation source is included: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), bounded JPEG validation, in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
-- A focused locale audit found that adaptive quiz context previously prefixed the locale as `विद्यार्थी की पढ़ाई सेटअप — language: en`, while the Worker intentionally recognizes a dedicated `language: en` field. That mismatch could make English/Hinglish quizzes default to Hindi. The current follow-up emits the stable standalone locale field and adds regression coverage for all three supported locales; Build #186 must validate it.
+- The current follow-up adds a confirmation-protected control to clear only the student's curated AI Study Memory by writing explicit empty fields. Prior AI chats and quiz history are deliberately preserved; Build #187 must validate the UI and emulator allowance.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
 ## 1A. Latest focused audit findings (7 November 2026)
@@ -41,7 +42,7 @@ Latest reviewed source snapshot (7 November 2026; update after each candidate bu
 - [x] AI Worker checks authenticated Firebase UID against separate Cloudflare Rate Limiting bindings: tutor/explanation 20 calls per 60 seconds and quiz generation 5 calls per 60 seconds. Missing/failed bindings fail closed. Limits are approximate and independent per Cloudflare edge location, not a strict global quota; do not describe them as a hard billing cap. Bindings are configured in `workers/wrangler.toml`; this source change does NOT deploy the Worker.
 - [x] Worker unit tests cover rate-limit allow/deny/fail-closed behavior, UID keying, request-size and malformed JSON handling, and quiz schema rejection (count, duplicate options, blank title, invalid answer index). Existing provider error classification tests remain. End-to-end signed Firebase token tests and deployed binding smoke tests remain release gates.
 - [x] Build #177 validates that onboarding, editable memory, quiz history and prior-chat context are sent as a separate untrusted user-role JSON message rather than system instructions. Tests verify role separation, JSON preservation, language selection, quiz request details and explanation fields.
-- [x] AI Teacher consumes a bounded recent quiz summary (scores, repeated weak topics and explicitly incorrect questions) from the same authenticated user's `quiz_attempts`; Build #185 passed all 53 Flutter tests.
+- [x] AI Teacher consumes a bounded recent quiz summary (scores, repeated weak topics and explicitly incorrect questions) from the same authenticated user's `quiz_attempts`; Build #186 passed all 54 Flutter tests.
 - [x] Builds #178 and #179 failures were diagnosed from logs and corrected: #178 had an over-escaped schema literal; #179 had one stale test phrase. Build #180 now passes the full Worker, Flutter, Firestore Emulator and APK workflow.
 - [x] Build #180 confirms the exact quiz JSON envelope, requested question count, option uniqueness and field limits through Worker tests.
 - [x] Worker quiz generation constructs its exact JSON response envelope with `JSON.stringify` and matches the title/questions/options/answerIndex and field bounds enforced by `isValidQuizResponse`; Build #180 passed the regression suite.
@@ -88,8 +89,8 @@ Test each flow on a clean install and on an existing account:
 - [ ] AI response uses the student's level and goals appropriately without treating profile text as system instructions.
 - [ ] Quiz history includes only a small, relevant, recent sample; verify wrong-answer extraction and avoid duplicate/noisy entries.
 - [ ] Account B cannot read or influence account A's study context.
-- [ ] Clearly distinguish contextual personalization from persistent editable AI memory. Do not label it “full AI memory” until memory storage, view/edit/delete controls and rules are implemented and tested.
-- [ ] Test memory reset/deletion and ensure deleted context is not sent on the next request.
+- [ ] Clearly distinguish contextual personalization from persistent editable AI memory. Do not label it “full AI memory” until memory storage, view/edit/clear controls and rules are implemented and tested.
+- [ ] Test clearing curated memory and ensure its summary, strengths, weak topics and preferred style are absent from the next request; confirm prior chats and quiz history remain separate context sources.
 
 ## 5. AI Teacher, chat sessions and history
 
@@ -159,7 +160,7 @@ Test each flow on a clean install and on an existing account:
 - [x] Llama Guard 3 must explicitly classify the prompt as safe; unsafe, malformed or unavailable moderation blocks generation.
 - [x] FLUX.1 [schnell] runs at four steps. The app displays returned image bytes in memory only; no Firestore, public bucket or R2 storage is used.
 - [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
-- [x] Build #185 passed Worker JavaScript checks (23/23), Flutter Analyze, all 53 Flutter tests, Firestore Rules Emulator tests (5/5), release APK build and artifact upload.
+- [x] Build #186 passed Worker JavaScript checks (23/23), Flutter Analyze, all 54 Flutter tests, Firestore Rules Emulator tests (5/5), release APK build and artifact upload.
 - [x] Worker moderation tests require the entire trimmed Llama Guard response to equal `safe`; actual newline/category suffixes and literal escaped suffixes are rejected.
 - [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64 and the JPEG SOI signature before rendering; Build #184 passed the decoder and malformed-payload tests.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
@@ -204,7 +205,7 @@ Perform only after final schema and code are stable. First review the complete c
 - [ ] Account A cannot get/list/create/update/delete account B profile, onboarding, plan, notes, quiz attempts, chats, messages or memory.
 - [ ] Client cannot grant itself admin role or edit protected profile fields.
 - [ ] Chat/message fields, role, length and timestamps are validated; clients cannot modify immutable messages.
-- [ ] Study-memory writes remain denied until a validated write schema/editor is implemented.
+- [x] Checked-in Study Memory rules allow only the signed-in owner to write the fixed `profile` document with bounded fields and a server timestamp; production publication and phone isolation tests remain pending.
 - [ ] Public catalog is read-only to ordinary users; admin writes are server/admin controlled.
 - [ ] Catch-all deny remains in place.
 - [ ] Rules Playground tests cover allow and deny cases for every collection/subcollection.

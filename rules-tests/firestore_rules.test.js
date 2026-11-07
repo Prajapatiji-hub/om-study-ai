@@ -62,6 +62,12 @@ test('AI Study Memory accepts bounded owner writes and rejects cross-account or 
   await assertFails(setDoc(memory(dbFor('alice')), {
     ...valid, summary: 'x'.repeat(2001),
   }));
+  // The profile editor clears curated memory by replacing every field with an
+  // explicit empty value; this must remain allowed without deleting the doc.
+  await assertSucceeds(setDoc(memory(dbFor('alice')), {
+    summary: '', strengths: [], weakTopics: [], preferredStyle: '',
+    updatedAt: serverTimestamp(),
+  }));
 });
 
 test('AI chat and messages are owner-only, bounded, and immutable after creation', async () => {

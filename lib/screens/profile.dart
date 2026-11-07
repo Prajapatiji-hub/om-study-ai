@@ -110,6 +110,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => _savingMemory = false);
   }
 
+  Future<void> _clearMemory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('AI Study Memory खाली करें?'),
+        content: const Text(
+          'इससे केवल आपकी स्वयं लिखी पढ़ाई का सार, मजबूत/कमजोर विषय और समझाने की पसंद खाली होगी। पुराने AI chats और quiz history सुरक्षित रहेंगे और अलग अध्ययन-संदर्भ के रूप में उपयोग हो सकते हैं।',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('रहने दें'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('खाली करें'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _savingMemory = true;
+      _memoryMsg = null;
+    });
+    try {
+      // Write every field explicitly as empty so merge:true cannot retain an
+      // older curated value. Chat and quiz history are intentionally untouched.
+      await widget.repo.saveStudyMemory(
+        summary: '',
+        strengths: const [],
+        weakTopics: const [],
+        preferredStyle: '',
+      );
+      _memorySummary.clear();
+      _strengths.clear();
+      _weakTopics.clear();
+      _preferredStyle.clear();
+      _memoryMsg = 'आपकी लिखी AI Study Memory खाली हो गई। पुराने chats और quiz history सुरक्षित हैं।';
+      _memoryError = false;
+    } catch (e) {
+      final code = e is FirebaseException ? e.code : e.runtimeType.toString();
+      _memoryMsg = e is ArgumentError
+          ? e.message.toString()
+          : 'Memory खाली नहीं हुई (कारण: $code)। यदि permission-denied है, अंतिम Firestore Rules प्रकाशित होने बाकी हैं।';
+      _memoryError = true;
+    }
+    if (mounted) setState(() => _savingMemory = false);
+  }
+
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -211,6 +262,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.psychology_alt_outlined),
                   label: const Text('AI Study Memory सेव करें'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _savingMemory ? null : _clearMemory,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('मेरी लिखी AI Study Memory खाली करें'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
