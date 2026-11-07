@@ -64,7 +64,7 @@ List<String> extractLegacyStudentQuestionsFromNewestFirst(
     if (message['role'] != 'user') continue;
     final rawText = message['text'];
     if (rawText is! String) continue;
-    final clean = rawText.trim().replaceAll(RegExp(r'\\s+'), ' ');
+    final clean = rawText.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (clean.isEmpty || !seen.add(clean)) continue;
     questions.add(clean.length > maxCharacters
         ? '${clean.substring(0, maxCharacters)}…'

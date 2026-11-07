@@ -52,7 +52,7 @@ void main() {
         {'role': 'model', 'text': 'AI answer'},
         {'role': 'user', 'text': 'x' * 300},
         {'role': 'user', 'text': 'वही सवाल'},
-        {'role': 'user', 'text': '  वही सवाल  '},
+        {'role': 'user', 'text': '  वही   सवाल  '},
         {'role': 'user', 'text': '   '},
         {'role': 'user', 'text': 42},
       ]);
