@@ -5,6 +5,25 @@ bool isIncorrectQuizResponse(Map response) {
   return selected is int && correct is int && selected != correct;
 }
 
+
+/// Uses the editable profile language first, then the original Study Setup
+/// answer for older accounts that do not yet have a profile language field.
+String? resolveStudyLanguage({
+  required Map<String, dynamic> profile,
+  required Map<String, dynamic> setupAnswers,
+}) {
+  const supported = {'hi', 'en', 'hinglish'};
+  final profileLanguage = profile['language'];
+  if (profileLanguage is String && supported.contains(profileLanguage)) {
+    return profileLanguage;
+  }
+  final setupLanguage = setupAnswers['language'];
+  if (setupLanguage is String && supported.contains(setupLanguage)) {
+    return setupLanguage;
+  }
+  return null;
+}
+
 /// Builds a compact, privacy-scoped learning profile for adaptive quiz generation.
 String buildAdaptiveQuizContext({
   required Map<String, dynamic> setupAnswers,

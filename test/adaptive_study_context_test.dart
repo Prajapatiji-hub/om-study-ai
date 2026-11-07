@@ -13,6 +13,29 @@ void main() {
     });
   });
 
+  group('study language resolution', () {
+    test('prefers the editable profile language and falls back to Study Setup', () {
+      expect(
+        resolveStudyLanguage(
+          profile: {'language': 'en'},
+          setupAnswers: {'language': 'hi'},
+        ),
+        'en',
+      );
+      expect(
+        resolveStudyLanguage(
+          profile: {'language': 'unsupported'},
+          setupAnswers: {'language': 'hinglish'},
+        ),
+        'hinglish',
+      );
+      expect(
+        resolveStudyLanguage(profile: {}, setupAnswers: {}),
+        isNull,
+      );
+    });
+  });
+
   group('adaptive quiz study context', () {
     test('ranks topics with repeated incorrect answers first', () {
       final context = buildAdaptiveQuizContext(

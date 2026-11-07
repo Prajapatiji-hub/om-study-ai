@@ -85,11 +85,22 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     final priorQuestions = <String>[];
     final legacyQuestions = <String>[];
 
+    Map<String, dynamic> profile = {};
+    try {
+      profile = (await root.get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Older profiles may be unavailable; Study Setup remains a fallback.
+    }
     try {
       answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
     } catch (_) {
       // Missing setup data must not prevent a practice test.
     }
+    final preferredLanguage = resolveStudyLanguage(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (preferredLanguage != null) answers['language'] = preferredLanguage;
     try {
       curatedMemory = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
     } catch (_) {

@@ -307,6 +307,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
     final parts = <String>[];
+    Map<String, dynamic> profile = {};
+    try {
+      profile = (await root.get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Fall back to Study Setup language when a legacy profile is unavailable.
+    }
     try {
       final curated = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? {};
       final summary = curated['summary'];
@@ -342,7 +348,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       if (goals is List && goals.isNotEmpty) {
         parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v.toString()).join(', ')}');
       }
-      for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','language','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
+      for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
         final value = answers[key];
         if (value is String && value.isNotEmpty && value != '__skipped') {
           if (key == 'language') {
@@ -352,6 +358,14 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
             parts.add('$key: ${labels[value] ?? value}');
           }
         }
+      }
+      final preferredLanguage = resolveStudyLanguage(
+        profile: profile,
+        setupAnswers: answers,
+      );
+      if (preferredLanguage != null) {
+        // The profile is editable; its language takes precedence over setup.
+        parts.add('language: $preferredLanguage (${labels[preferredLanguage] ?? preferredLanguage})');
       }
     } catch (_) {
       // Learning context is optional; never block a student's question.
