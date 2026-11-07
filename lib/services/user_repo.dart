@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'study_memory_validator.dart';
+import 'study_setup_state.dart';
+
 /// All private data lives under users/{uid}. uid comes from the signed-in user.
 class UserRepo {
   final User user;
@@ -15,25 +18,50 @@ class UserRepo {
       _userDoc.collection('onboarding').doc('answers');
 
   Future<void> ensureProfile() async {
-    final snap = await _userDoc.get();
-    if (!snap.exists) {
-      await _userDoc.set({
+    // Create the profile and required-onboarding marker atomically. If either
+    // write fails, neither is committed, so a new account cannot bypass setup
+    // because the profile write succeeded but the marker write failed.
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(_userDoc);
+      final setupSnap = await transaction.get(_answersDoc);
+      if (snap.exists) return;
+
+      // A saved setup document is evidence of an existing learner, even if a
+      // legacy profile document is missing. Preserve it and restore the
+      // profile's goal/language summary without forcing first-time onboarding.
+      final savedAnswers = setupSnap.data() ?? <String, dynamic>{};
+      final rawGoals = savedAnswers['goals'];
+      final savedGoals = rawGoals is List
+          ? rawGoals.whereType<String>().toList()
+          : <String>[];
+      final rawLanguage = savedAnswers['language'];
+      final savedLanguage = const ['hi', 'en', 'hinglish'].contains(rawLanguage)
+          ? rawLanguage as String
+          : 'hi';
+
+      transaction.set(_userDoc, {
         'uid': uid,
         'displayName': (user.displayName ?? '').trim().isEmpty
             ? 'विद्यार्थी'
             : user.displayName!.trim(),
         'email': user.email ?? '',
-        'language': 'hi',
-        'selectedGoals': <String>[],
+        'language': savedLanguage,
+        'selectedGoals': savedGoals,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // Only profiles created from this point forward are required to complete setup.
-      // Existing accounts are deliberately left untouched.
-      await _answersDoc.set({
-        '_setupRequired': true,
-        '_setupCreatedAt': FieldValue.serverTimestamp(),
-      });
-    }
+
+      // Only a genuinely new account (neither profile nor saved setup) gets
+      // the required marker. Both writes remain atomic.
+      if (shouldCreateRequiredStudySetupMarker(
+        profileExists: snap.exists,
+        setupAnswersExist: setupSnap.exists,
+      )) {
+        transaction.set(_answersDoc, {
+          '_setupRequired': true,
+          '_setupCreatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }).timeout(const Duration(seconds: 15));
   }
 
   Future<void> completeRequiredSetup() async {
@@ -180,6 +208,31 @@ class UserRepo {
 
   Future<void> deleteNote(String noteId) =>
       _notesCol.doc(noteId).delete().timeout(const Duration(seconds: 15));
+
+
+  DocumentReference<Map<String, dynamic>> get _studyMemoryDoc =>
+      _userDoc.collection('ai_study_memory').doc('profile');
+
+  Future<Map<String, dynamic>> loadStudyMemory() async =>
+      (await _studyMemoryDoc.get()).data() ?? {};
+
+  Future<void> saveStudyMemory({
+    required String summary,
+    required List<String> strengths,
+    required List<String> weakTopics,
+    required String preferredStyle,
+  }) async {
+    final data = sanitizeStudyMemory(
+      summary: summary,
+      strengths: strengths,
+      weakTopics: weakTopics,
+      preferredStyle: preferredStyle,
+    );
+    await _studyMemoryDoc.set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).timeout(const Duration(seconds: 12));
+  }
 
   CollectionReference<Map<String, dynamic>> get _quizAttemptsCol =>
       _userDoc.collection('quiz_attempts');

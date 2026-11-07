@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
+import '../services/study_setup_state.dart';
 import '../theme.dart';
 import 'coming_soon.dart';
 import 'onboarding.dart';
@@ -12,6 +13,7 @@ import 'practice_quiz.dart';
 import 'quiz_history.dart';
 import 'mistake_review.dart';
 import 'ai_teacher.dart';
+import 'image_generator.dart';
 
 class Module {
   final String title;
@@ -26,6 +28,7 @@ const kModules = [
   Module('सरकारी परीक्षा', Icons.account_balance, goal: 'govt'),
   Module('ITI और हुनर', Icons.electrical_services, goal: 'iti'),
   Module('AI टीचर', Icons.smart_toy, ready: true),
+  Module('AI चित्र बनाएँ', Icons.image_outlined, ready: true),
   Module('मेरा स्टडी प्लान', Icons.event_note, ready: true),
   Module('मेरा सिलेबस', Icons.menu_book, ready: true),
   Module('मेरे नोट्स', Icons.edit_note, ready: true),
@@ -50,6 +53,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final Future<void> _init = widget.repo.ensureProfile();
 
   void _open(Module m) {
+    if (m.title == 'AI चित्र बनाएँ') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const ImageGeneratorScreen()));
+      return;
+    }
     final page = m.title == 'AI टीचर'
         ? const AiTeacherScreen()
         : (m.title == 'मेरा सिलेबस'
@@ -101,7 +108,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return StreamBuilder<Map<String, dynamic>>(
               stream: widget.repo.answers(),
               builder: (context, setupSnap) {
-                if (setupSnap.hasData && setupSnap.data?['_setupRequired'] == true) {
+                if (setupSnap.hasError) {
+                  return Scaffold(
+                    body: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Study Setup की स्थिति जाँची नहीं जा सकी। इंटरनेट जाँचकर दोबारा कोशिश करें।',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: () => setState(() {}),
+                              child: const Text('फिर कोशिश करें'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                if (!setupSnap.hasData) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (isRequiredStudySetupPending(setupSnap.data ?? const {})) {
                   return OnboardingScreen(repo: widget.repo, requiredForNewAccount: true);
                 }
                 return Scaffold(
