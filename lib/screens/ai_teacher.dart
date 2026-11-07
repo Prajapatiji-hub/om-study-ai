@@ -344,9 +344,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         'hi': 'हिंदी', 'en': 'English', 'hinglish': 'Hinglish',
         'beginner': 'शुरुआती', 'medium': 'मध्यम', 'good': 'अच्छा',
       };
-      final goals = answers['goals'];
-      if (goals is List && goals.isNotEmpty) {
-        parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v.toString()).join(', ')}');
+      final goals = resolveStudyGoals(
+        profile: profile,
+        setupAnswers: answers,
+      );
+      if (goals.isNotEmpty) {
+        parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v).join(', ')}');
       }
       for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
         final value = answers[key];

@@ -13,6 +13,57 @@ void main() {
     });
   });
 
+  group('study goal resolution', () {
+    test('prefers explicit Study Setup goals over profile fallback', () {
+      expect(
+        resolveStudyGoals(
+          profile: {'selectedGoals': ['govt']},
+          setupAnswers: {'goals': ['school', 'iti']},
+        ),
+        ['school', 'iti'],
+      );
+    });
+
+    test('restores bounded, unique profile goals for legacy accounts', () {
+      expect(
+        resolveStudyGoals(
+          profile: {'selectedGoals': ['govt', 'govt', '  ', 42, 'iti']},
+          setupAnswers: {},
+        ),
+        ['govt', 'iti'],
+      );
+    });
+  });
+
+  group('legacy AI Teacher question extraction', () {
+    test('keeps only student prompts and restores chronological order', () {
+      final questions = extractLegacyStudentQuestionsFromNewestFirst([
+        {'role': 'model', 'text': 'सबसे नया AI उत्तर'},
+        {'role': 'user', 'text': 'नया विद्यार्थी सवाल'},
+        {'role': 'model', 'text': 'पुराना AI उत्तर'},
+        {'role': 'user', 'text': 'पुराना विद्यार्थी सवाल'},
+      ]);
+
+      expect(questions, ['पुराना विद्यार्थी सवाल', 'नया विद्यार्थी सवाल']);
+    });
+
+    test('deduplicates, ignores malformed rows and bounds prompt text', () {
+      final questions = extractLegacyStudentQuestionsFromNewestFirst([
+        {'role': 'model', 'text': 'AI answer'},
+        {'role': 'user', 'text': 'x' * 300},
+        {'role': 'user', 'text': 'वही सवाल'},
+        {'role': 'user', 'text': '  वही सवाल  '},
+        {'role': 'user', 'text': '   '},
+        {'role': 'user', 'text': 42},
+      ]);
+
+      expect(questions, hasLength(2));
+      expect(questions.first, 'वही सवाल');
+      expect(questions.last.length, 221);
+      expect(questions.last.endsWith('…'), isTrue);
+    });
+  });
+
   group('study language resolution', () {
     test('prefers the editable profile language and falls back to Study Setup', () {
       expect(

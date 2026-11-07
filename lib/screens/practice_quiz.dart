@@ -96,6 +96,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     } catch (_) {
       // Missing setup data must not prevent a practice test.
     }
+    final resolvedGoals = resolveStudyGoals(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (resolvedGoals.isNotEmpty) answers['goals'] = resolvedGoals;
     final preferredLanguage = resolveStudyLanguage(
       profile: profile,
       setupAnswers: answers,
@@ -142,12 +147,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     try {
       final legacy = await root.collection('ai_teacher_messages')
           .orderBy('createdAt', descending: true)
-          .limit(4)
+          .limit(8)
           .get();
-      for (final doc in legacy.docs) {
-        final value = doc.data()['text'];
-        if (value is String && value.trim().isNotEmpty) legacyQuestions.add(value.trim());
-      }
+      legacyQuestions.addAll(extractLegacyStudentQuestionsFromNewestFirst(
+        legacy.docs.map((doc) => doc.data()).toList(),
+      ));
     } catch (_) {
       // Legacy history may be absent or use an older query index.
     }

@@ -24,6 +24,56 @@ String? resolveStudyLanguage({
   return null;
 }
 
+/// Resolves the student's goals without losing older profile-only data.
+/// Explicit Study Setup answers take precedence; legacy profile goals are a fallback.
+List<String> resolveStudyGoals({
+  required Map<String, dynamic> profile,
+  required Map<String, dynamic> setupAnswers,
+}) {
+  List<String> cleanGoals(dynamic raw) {
+    if (raw is! List) return <String>[];
+    final seen = <String>{};
+    return raw
+        .whereType<String>()
+        .map((goal) => goal.trim())
+        .where((goal) => goal.isNotEmpty && seen.add(goal))
+        .take(8)
+        .map((goal) => goal.length > 80 ? '${goal.substring(0, 80)}…' : goal)
+        .toList();
+  }
+
+  final setupGoals = cleanGoals(setupAnswers['goals']);
+  return setupGoals.isNotEmpty
+      ? setupGoals
+      : cleanGoals(profile['selectedGoals']);
+}
+
+/// Extracts only student-authored legacy chat prompts from a newest-first
+/// Firestore page, returning them in chronological order for quiz context.
+/// Assistant answers are deliberately excluded so they cannot become fake
+/// student questions or bias adaptive quiz generation.
+List<String> extractLegacyStudentQuestionsFromNewestFirst(
+  List<Map<String, dynamic>> newestFirstMessages, {
+  int maxQuestions = 4,
+  int maxCharacters = 220,
+}) {
+  if (maxQuestions <= 0 || maxCharacters <= 0) return <String>[];
+  final seen = <String>{};
+  final questions = <String>[];
+  for (final message in newestFirstMessages.reversed) {
+    if (message['role'] != 'user') continue;
+    final rawText = message['text'];
+    if (rawText is! String) continue;
+    final clean = rawText.trim().replaceAll(RegExp(r'\\s+'), ' ');
+    if (clean.isEmpty || !seen.add(clean)) continue;
+    questions.add(clean.length > maxCharacters
+        ? '${clean.substring(0, maxCharacters)}…'
+        : clean);
+    if (questions.length >= maxQuestions) break;
+  }
+  return questions;
+}
+
 /// Builds a compact, privacy-scoped learning profile for adaptive quiz generation.
 String buildAdaptiveQuizContext({
   required Map<String, dynamic> setupAnswers,
