@@ -34,7 +34,7 @@ bool _hasValidQuizScore(dynamic score, dynamic total) =>
 
 String? _cleanQuizText(dynamic value, {required int maxCharacters}) {
   if (value is! String) return null;
-  final clean = value.trim().replaceAll(RegExp(r'\\s+'), ' ');
+  final clean = value.trim().replaceAll(RegExp(r'\s+'), ' ');
   if (clean.isEmpty) return null;
   return clean.length > maxCharacters
       ? '${clean.substring(0, maxCharacters)}…'
@@ -182,7 +182,7 @@ String buildAdaptiveQuizContext({
     final score = attempt['score'];
     final total = attempt['total'];
     if (_hasValidQuizScore(score, total)) {
-      scoreSummaries.add('${score}/${total} सही');
+      scoreSummaries.add('$score/$total सही');
     }
     final rawResponses = attempt['responses'];
     if (rawResponses is! List) continue;
@@ -249,7 +249,7 @@ String buildRecentQuizLearningSummary(
     final score = attempt['score'];
     final total = attempt['total'];
     if (_hasValidQuizScore(score, total)) {
-      scoreSummaries.add('${score}/${total} सही');
+      scoreSummaries.add('$score/$total सही');
     }
 
     final responses = attempt['responses'];

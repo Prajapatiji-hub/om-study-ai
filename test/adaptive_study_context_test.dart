@@ -243,8 +243,8 @@ void main() {
             'total': 3,
             'responses': [
               {
-                'question': '  ' + ('Long question  ' * 20),
-                'topic': '  ' + ('Electrical topic ' * 8),
+                'question': '  ${'Long question  ' * 20}',
+                'topic': '  ${'Electrical topic ' * 8}',
                 'selectedIndex': 0,
                 'correctIndex': 1,
               },
