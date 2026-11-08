@@ -39,6 +39,7 @@ import {
   checkUserRateLimit,
   generateImageForStudent,
   isSafeImageModerationResult,
+  isValidBase64Jpeg,
   isValidQuizResponse,
   normalizeChatHistory,
   normalizeImagePrompt,
@@ -135,6 +136,16 @@ test("image prompts are trimmed and strictly bounded", () => {
   assert.throws(() => normalizeImagePrompt(42), /सही प्रारूप/);
 });
 
+test("image payload validation requires bounded, complete JPEG bytes", () => {
+  const validJpeg = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1NXW19jZ2uHi4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxmiiigD//2Q==";
+  assert.equal(isValidBase64Jpeg(validJpeg), true);
+  assert.equal(isValidBase64Jpeg("A".repeat(120)), false);
+  assert.equal(isValidBase64Jpeg(validJpeg.slice(0, -4)), false);
+  assert.equal(isValidBase64Jpeg(validJpeg + "AAAA"), false);
+  assert.equal(isValidBase64Jpeg("A".repeat(8000004)), false);
+  assert.equal(isValidBase64Jpeg(42), false);
+});
+
 test("image moderation accepts only the complete safe verdict and fails closed otherwise", () => {
   assert.equal(isSafeImageModerationResult({ response: "safe" }), true);
   assert.equal(isSafeImageModerationResult({ response: " safe " }), true);
@@ -171,10 +182,11 @@ test("safe image prompts use only FLUX Schnell with four steps and no paid fallb
       calls.push({ model, input });
       return model === "@cf/meta/llama-guard-3-8b"
         ? { response: "safe" }
-        : { image: "A".repeat(120) };
+        : { image: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1NXW19jZ2uHi4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxmiiigD//2Q==" };
     } },
   }, "student-a", "Ohm law circuit diagram");
   assert.equal(result.status, 200);
+  assert.equal(isValidBase64Jpeg(result.body.image), true);
   assert.equal(result.body.model, "@cf/black-forest-labs/flux-1-schnell");
   assert.equal(result.body.mimeType, "image/jpeg");
   assert.equal(calls[1].model, "@cf/black-forest-labs/flux-1-schnell");

@@ -96,6 +96,7 @@ export async function checkUserRateLimit(binding, userId) {
 
 const MAX_IMAGE_PROMPT_CHARS = 500;
 const MAX_IMAGE_BASE64_CHARS = 8000000;
+const MAX_IMAGE_BYTES = 6000000;
 
 export function normalizeImagePrompt(value) {
   if (typeof value !== "string") throw new Error("चित्र का विवरण सही प्रारूप में नहीं है।");
@@ -104,6 +105,30 @@ export function normalizeImagePrompt(value) {
     throw new Error("चित्र का विवरण 1 से 500 अक्षरों के बीच रखें।");
   }
   return prompt;
+}
+
+export function isValidBase64Jpeg(value) {
+  if (typeof value !== "string" ||
+      value.length < 100 ||
+      value.length > MAX_IMAGE_BASE64_CHARS ||
+      value.length % 4 !== 0 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    return false;
+  }
+  try {
+    // Workers AI FLUX.1 [schnell] returns a base64-encoded JPEG. Decode it
+    // before returning so invalid, truncated or oversized bytes never reach
+    // the mobile image renderer as image/jpeg.
+    const binary = atob(value);
+    if (binary.length < 3 || binary.length > MAX_IMAGE_BYTES) return false;
+    return binary.charCodeAt(0) === 0xff &&
+      binary.charCodeAt(1) === 0xd8 &&
+      binary.charCodeAt(2) === 0xff &&
+      binary.charCodeAt(binary.length - 2) === 0xff &&
+      binary.charCodeAt(binary.length - 1) === 0xd9;
+  } catch (_) {
+    return false;
+  }
 }
 
 export function isSafeImageModerationResult(result) {
@@ -152,8 +177,7 @@ export async function generateImageForStudent(env, userId, prompt) {
       steps: 4,
     });
     const image = generated?.image;
-    if (typeof image !== "string" || image.length < 100 || image.length > MAX_IMAGE_BASE64_CHARS ||
-        !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) {
+    if (!isValidBase64Jpeg(image)) {
       return { status: 503, body: { error: "invalid_image_response", message: "चित्र सही प्रारूप में नहीं मिला। फिर कोशिश करें।" } };
     }
     return {
