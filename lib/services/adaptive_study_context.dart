@@ -117,6 +117,48 @@ List<String> extractLegacyStudentQuestionsFromNewestFirst(
   return questions;
 }
 
+/// Formats the student's curated private memory once for every AI feature.
+/// Both AI Teacher and adaptive quiz use this exact bounded representation so
+/// a large or malformed memory field cannot crowd out the rest of the context.
+String buildCuratedStudyMemoryContext(Map<String, dynamic> memory) {
+  final parts = <String>[];
+  final summary = memory['summary'];
+  if (summary is String && summary.trim().isNotEmpty) {
+    final clean = summary.trim();
+    parts.add(
+      'विद्यार्थी की संपादित AI Study Memory: '
+      '${clean.length > 900 ? '${clean.substring(0, 900)}…' : clean}',
+    );
+  }
+
+  for (final entry in [
+    ('मजबूत विषय (विद्यार्थी की पसंद)', memory['strengths']),
+    ('विद्यार्थी द्वारा बताए कमजोर विषय — पहले अभ्यास दें', memory['weakTopics']),
+  ]) {
+    final values = entry.$2;
+    if (values is! List) continue;
+    final clean = values
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .take(8)
+        .map((value) => value.length > 60 ? '${value.substring(0, 60)}…' : value)
+        .toList();
+    if (clean.isNotEmpty) parts.add('${entry.$1}: ${clean.join(', ')}');
+  }
+
+  final preferredStyle = memory['preferredStyle'];
+  if (preferredStyle is String && preferredStyle.trim().isNotEmpty) {
+    final clean = preferredStyle.trim();
+    parts.add(
+      'समझाने की पसंदीदा शैली: '
+      '${clean.length > 240 ? '${clean.substring(0, 240)}…' : clean}',
+    );
+  }
+  return parts.join('\n');
+}
+
 /// Builds a compact, privacy-scoped learning profile for adaptive quiz generation.
 String buildAdaptiveQuizContext({
   required Map<String, dynamic> setupAnswers,
@@ -144,35 +186,9 @@ String buildAdaptiveQuizContext({
     }
   }
 
-  // The student's editable private memory is shared with the AI Teacher.
-  // Include the same bounded profile in quiz generation so manual strengths,
-  // weak topics and explanation preferences are not lost between features.
-  final memorySummary = curatedStudyMemory['summary'];
-  if (memorySummary is String && memorySummary.trim().isNotEmpty) {
-    final clean = memorySummary.trim();
-    parts.add('विद्यार्थी की संपादित AI Study Memory: ${clean.length > 900 ? '${clean.substring(0, 900)}…' : clean}');
-  }
-  for (final entry in [
-    ('मजबूत विषय (विद्यार्थी की पसंद)', curatedStudyMemory['strengths']),
-    ('विद्यार्थी द्वारा बताए कमजोर विषय — पहले अभ्यास दें', curatedStudyMemory['weakTopics']),
-  ]) {
-    final values = entry.$2;
-    if (values is List) {
-      final clean = values
-          .whereType<String>()
-          .map((value) => value.trim())
-          .where((value) => value.isNotEmpty)
-          .take(8)
-          .map((value) => value.length > 60 ? '${value.substring(0, 60)}…' : value)
-          .toList();
-      if (clean.isNotEmpty) parts.add('${entry.$1}: ${clean.join(', ')}');
-    }
-  }
-  final preferredStyle = curatedStudyMemory['preferredStyle'];
-  if (preferredStyle is String && preferredStyle.trim().isNotEmpty) {
-    final clean = preferredStyle.trim();
-    parts.add('समझाने की पसंदीदा शैली: ${clean.length > 240 ? '${clean.substring(0, 240)}…' : clean}');
-  }
+  // Reuse the same curated-memory formatter as AI Teacher.
+  final curatedMemoryContext = buildCuratedStudyMemoryContext(curatedStudyMemory);
+  if (curatedMemoryContext.isNotEmpty) parts.add(curatedMemoryContext);
 
   final weakTopics = <String, int>{};
   final mistakes = <String>[];

@@ -104,6 +104,54 @@ void main() {
     });
   });
 
+  group('shared curated AI Study Memory context', () {
+    test('formats one deduplicated bounded memory for every AI feature', () {
+      final context = buildCuratedStudyMemoryContext({
+        'summary': '  कक्षा 12 की तैयारी  ',
+        'strengths': ['गणित', 'गणित', 'भौतिकी', '  ', 42],
+        'weakTopics': List.generate(10, (index) => 'विषय $index'),
+        'preferredStyle': '  आसान हिंदी और चरण-दर-चरण उदाहरण  ',
+      });
+
+      expect(context, contains('कक्षा 12 की तैयारी'));
+      expect(context, contains('मजबूत विषय'));
+      expect(context, contains('कमजोर विषय'));
+      expect(context, contains('विषय 7'));
+      expect(context, isNot(contains('विषय 8')));
+      expect(context, contains('चरण-दर-चरण'));
+      expect(RegExp('गणित').allMatches(context), hasLength(1));
+      expect(context, isNot(contains('42')));
+    });
+
+    test('caps long fields and ignores malformed memory values', () {
+      final context = buildCuratedStudyMemoryContext({
+        'summary': 'स' * 1000,
+        'strengths': ['ग' * 80, null, 42],
+        'weakTopics': 'यह सूची नहीं है',
+        'preferredStyle': 'श' * 300,
+      });
+
+      expect(context, contains('स' * 900 + '…'));
+      expect(context, isNot(contains('स' * 901)));
+      expect(context, contains('ग' * 60 + '…'));
+      expect(context, contains('श' * 240 + '…'));
+      expect(context, isNot(contains('42')));
+      expect(context.length, lessThan(1600));
+    });
+
+    test('returns an empty context when no valid curated fields exist', () {
+      expect(
+        buildCuratedStudyMemoryContext({
+          'summary': '  ',
+          'strengths': [null, 42],
+          'weakTopics': 'invalid',
+          'preferredStyle': '',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
   group('adaptive quiz study context', () {
     test('ranks topics with repeated incorrect answers first', () {
       final context = buildAdaptiveQuizContext(

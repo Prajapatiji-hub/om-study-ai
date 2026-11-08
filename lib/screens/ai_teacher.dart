@@ -314,26 +314,9 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       // Fall back to Study Setup language when a legacy profile is unavailable.
     }
     try {
-      final curated = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? {};
-      final summary = curated['summary'];
-      if (summary is String && summary.trim().isNotEmpty) {
-        parts.add('विद्यार्थी की स्वयं लिखी पढ़ाई की जानकारी: ${summary.trim()}');
-      }
-      for (final entry in [
-        ('मजबूत विषय', curated['strengths']),
-        ('जिन विषयों में मदद चाहिए', curated['weakTopics']),
-      ]) {
-        final values = entry.$2;
-        if (values is List) {
-          final clean = values.whereType<String>().map((v) => v.trim())
-              .where((v) => v.isNotEmpty).take(12).toList();
-          if (clean.isNotEmpty) parts.add('${entry.$1}: ${clean.join(', ')}');
-        }
-      }
-      final style = curated['preferredStyle'];
-      if (style is String && style.trim().isNotEmpty) {
-        parts.add('समझाने की पसंदीदा शैली: ${style.trim()}');
-      }
+      final curated = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
+      final curatedContext = buildCuratedStudyMemoryContext(curated);
+      if (curatedContext.isNotEmpty) parts.add(curatedContext);
     } catch (_) {
       // Curated memory is optional until the consolidated rules are published.
     }
