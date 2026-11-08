@@ -9,6 +9,23 @@ void main() {
       expect(isIncorrectQuizResponse({'selectedIndex': null, 'correctIndex': null}), isFalse);
       expect(isIncorrectQuizResponse({'selectedIndex': null, 'correctIndex': 1}), isFalse);
       expect(isIncorrectQuizResponse({'selectedIndex': '0', 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': -1, 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': 0, 'correctIndex': 4}), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 1,
+        'options': ['A', 'B'],
+      }), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 1,
+        'options': ['A', 'B', '', 'D'],
+      }), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 3,
+        'options': ['A', 'B', 'C', 'D'],
+      }), isTrue);
       expect(isIncorrectQuizResponse({}), isFalse);
     });
   });
@@ -192,6 +209,56 @@ void main() {
       expect(context, isNot(contains('Unknown')));
     });
 
+    test('ignores impossible scores, out-of-range indexes and malformed options', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'score': 4,
+            'total': 3,
+            'responses': [
+              {'question': 'Negative index', 'topic': 'Bad A', 'selectedIndex': -1, 'correctIndex': 1},
+              {'question': 'Out of range', 'topic': 'Bad B', 'selectedIndex': 0, 'correctIndex': 4},
+              {'question': 'Bad options', 'topic': 'Bad C', 'selectedIndex': 0, 'correctIndex': 1, 'options': ['A', 'B']},
+              {'question': 'Valid wrong', 'topic': 'Physics', 'selectedIndex': 0, 'correctIndex': 1, 'options': ['A', 'B', 'C', 'D']},
+            ],
+          },
+        ],
+      );
+
+      expect(context, contains('Physics (1 गलत उत्तर)'));
+      expect(context, isNot(contains('Bad A')));
+      expect(context, isNot(contains('Bad B')));
+      expect(context, isNot(contains('Bad C')));
+      expect(context, isNot(contains('4/3 सही')));
+      expect(context, contains('Valid wrong'));
+    });
+
+    test('bounds and normalizes question and topic text before using it as a signal', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'score': 2.5,
+            'total': 3,
+            'responses': [
+              {
+                'question': '  ' + ('Long question  ' * 20),
+                'topic': '  ' + ('Electrical topic ' * 8),
+                'selectedIndex': 0,
+                'correctIndex': 1,
+              },
+            ],
+          },
+        ],
+      );
+
+      expect(context.length, lessThanOrEqualTo(3000));
+      expect(context, contains('Electrical topic'));
+      expect(context, isNot(contains('2/3 सही')));
+      expect(context, isNot(contains('Long question  Long question')));
+    });
+
     test('returns an empty context when no learner history exists', () {
       expect(
         buildAdaptiveQuizContext(setupAnswers: {}, quizAttempts: []),
@@ -263,6 +330,31 @@ void main() {
       // separators instead to verify the duplicate response was removed.
       expect(summary.split(' | '), hasLength(1));
       expect(summary, contains('Electrical basics (30 गलत)'));
+    });
+
+    test('ignores fractional or impossible scores and malformed answer indexes', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'score': 3.5,
+          'total': 5,
+          'responses': [
+            {'question': 'Negative', 'topic': 'Bad', 'selectedIndex': -1, 'correctIndex': 1},
+            {'question': 'Out of range', 'topic': 'Bad', 'selectedIndex': 0, 'correctIndex': 4},
+            {'question': 'Valid', 'topic': 'Physics', 'selectedIndex': 0, 'correctIndex': 1},
+          ],
+        },
+        {
+          'score': 6,
+          'total': 5,
+          'responses': [],
+        },
+      ]);
+
+      expect(summary, contains('Physics (1 गलत)'));
+      expect(summary, contains('Valid'));
+      expect(summary, isNot(contains('3/5 सही')));
+      expect(summary, isNot(contains('6/5 सही')));
+      expect(summary, isNot(contains('Bad')));
     });
 
     test('returns empty summary when attempts have no valid quiz history', () {

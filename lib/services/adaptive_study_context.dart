@@ -1,8 +1,51 @@
-/// Returns true only for a well-formed, explicitly incorrect quiz response.
+/// Returns true only for a valid, explicitly incorrect four-option response.
+///
+/// Older attempts may not contain the original options array, so indexes are
+/// still accepted when absent. If options are present, they must be a valid
+/// four-string list and both indexes must address it.
 bool isIncorrectQuizResponse(Map response) {
   final selected = response['selectedIndex'];
   final correct = response['correctIndex'];
-  return selected is int && correct is int && selected != correct;
+  if (selected is! int ||
+      correct is! int ||
+      selected < 0 ||
+      correct < 0 ||
+      selected > 3 ||
+      correct > 3 ||
+      selected == correct) {
+    return false;
+  }
+
+  final options = response['options'];
+  if (options != null) {
+    if (options is! List ||
+        options.length != 4 ||
+        options.any((option) => option is! String || option.trim().isEmpty) ||
+        selected >= options.length ||
+        correct >= options.length) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _hasValidQuizScore(dynamic score, dynamic total) =>
+    score is int && total is int && total > 0 && score >= 0 && score <= total;
+
+String? _cleanQuizText(dynamic value, {required int maxCharacters}) {
+  if (value is! String) return null;
+  final clean = value.trim().replaceAll(RegExp(r'\\s+'), ' ');
+  if (clean.isEmpty) return null;
+  return clean.length > maxCharacters
+      ? '${clean.substring(0, maxCharacters)}…'
+      : clean;
+}
+
+String _cleanQuizTopic(dynamic value) {
+  if (value is! String) return '';
+  final clean = value.trim();
+  if (clean.isEmpty) return '';
+  return clean.length > 60 ? clean.substring(0, 60) : clean;
 }
 
 
@@ -133,12 +176,13 @@ String buildAdaptiveQuizContext({
 
   final weakTopics = <String, int>{};
   final mistakes = <String>[];
+  final seenMistakes = <String>{};
   final scoreSummaries = <String>[];
   for (final attempt in quizAttempts.take(5)) {
     final score = attempt['score'];
     final total = attempt['total'];
-    if (score is num && total is num && total > 0) {
-      scoreSummaries.add('${score.toInt()}/${total.toInt()} सही');
+    if (_hasValidQuizScore(score, total)) {
+      scoreSummaries.add('${score}/${total} सही');
     }
     final rawResponses = attempt['responses'];
     if (rawResponses is! List) continue;
@@ -146,13 +190,18 @@ String buildAdaptiveQuizContext({
       if (raw is! Map) continue;
       // Ignore malformed/legacy response rows instead of inventing a weakness.
       if (!isIncorrectQuizResponse(raw)) continue;
-      final question = raw['question'];
-      if (question is String && question.trim().isNotEmpty && mistakes.length < 8) {
-        mistakes.add(question.trim());
+      final question = _cleanQuizText(raw['question'], maxCharacters: 140);
+      if (question != null &&
+          seenMistakes.add(question) &&
+          mistakes.length < 8) {
+        mistakes.add(question);
       }
-      final topic = raw['topic'] is String
-          ? (raw['topic'] as String).trim()
-          : (attempt['topic'] is String ? (attempt['topic'] as String).trim() : '');
+      final responseTopic = raw['topic'];
+      final topic = _cleanQuizTopic(
+        responseTopic is String && responseTopic.trim().isNotEmpty
+            ? responseTopic
+            : attempt['topic'],
+      );
       if (topic.isNotEmpty) weakTopics[topic] = (weakTopics[topic] ?? 0) + 1;
     }
   }
@@ -199,8 +248,8 @@ String buildRecentQuizLearningSummary(
   for (final attempt in quizAttempts.take(maxAttempts < 0 ? 0 : maxAttempts)) {
     final score = attempt['score'];
     final total = attempt['total'];
-    if (score is num && total is num && total > 0 && score >= 0 && score <= total) {
-      scoreSummaries.add('${score.toInt()}/${total.toInt()} सही');
+    if (_hasValidQuizScore(score, total)) {
+      scoreSummaries.add('${score}/${total} सही');
     }
 
     final responses = attempt['responses'];
