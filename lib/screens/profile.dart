@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/user_repo.dart';
+import '../services/profile_data_loader.dart';
 import '../theme.dart';
 import 'onboarding.dart';
 
@@ -20,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _preferredStyle = TextEditingController();
   String _lang = 'hi';
   bool _loading = true, _saving = false, _savingMemory = false;
+  bool _loadingMemory = false, _profileLoaded = false, _memoryLoaded = false;
   String? _msg, _memoryMsg;
   bool _isError = false, _memoryError = false;
 
@@ -30,21 +32,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    try {
-      final p = await widget.repo.profile().first;
-      final memory = await widget.repo.loadStudyMemory();
+    // Profile and curated memory are separate reads. A pending/missing Memory
+    // Rules publication must not hide the student's profile or setup editor.
+    final result = await loadProfileAndMemory(
+      loadProfile: () => widget.repo.profile().first,
+      loadMemory: widget.repo.loadStudyMemory,
+    );
+    if (!mounted) return;
+
+    if (result.profile != null) {
+      final p = result.profile!;
       _name.text = (p['displayName'] ?? '').toString();
       final l = (p['language'] ?? 'hi').toString();
       _lang = const ['hi', 'en', 'hinglish'].contains(l) ? l : 'hi';
-      _memorySummary.text = (memory['summary'] ?? '').toString();
-      _strengths.text = _asLines(memory['strengths']);
-      _weakTopics.text = _asLines(memory['weakTopics']);
-      _preferredStyle.text = (memory['preferredStyle'] ?? '').toString();
-    } catch (_) {
-      _msg = 'प्रोफ़ाइल लोड नहीं हुई। इंटरनेट और अनुमति जाँचें।';
+      _profileLoaded = true;
+    } else {
+      final code = _errorCode(result.profileError);
+      _msg = 'प्रोफ़ाइल लोड नहीं हुई (कारण: $code)। इंटरनेट और अनुमति जाँचें।';
       _isError = true;
+      _profileLoaded = false;
     }
-    if (mounted) setState(() => _loading = false);
+
+    if (result.memory != null) {
+      _applyMemory(result.memory!);
+      _memoryLoaded = true;
+    } else {
+      final code = _errorCode(result.memoryError);
+      _memoryMsg = 'AI Study Memory लोड नहीं हुई (कारण: $code)। प्रोफ़ाइल और Study Setup उपलब्ध हैं; Memory बदलने से पहले पुनः लोड करें।';
+      _memoryError = true;
+      _memoryLoaded = false;
+    }
+    setState(() => _loading = false);
+  }
+
+  String _errorCode(Object? error) =>
+      error is FirebaseException ? error.code : (error?.runtimeType.toString() ?? 'unknown');
+
+  void _applyMemory(Map<String, dynamic> memory) {
+    _memorySummary.text = (memory['summary'] ?? '').toString();
+    _strengths.text = _asLines(memory['strengths']);
+    _weakTopics.text = _asLines(memory['weakTopics']);
+    _preferredStyle.text = (memory['preferredStyle'] ?? '').toString();
+  }
+
+  Future<void> _reloadMemory() async {
+    setState(() {
+      _loadingMemory = true;
+      _memoryMsg = null;
+    });
+    try {
+      final memory = await widget.repo.loadStudyMemory();
+      if (!mounted) return;
+      _applyMemory(memory);
+      _memoryLoaded = true;
+      _memoryMsg = 'AI Study Memory लोड हो गई।';
+      _memoryError = false;
+    } catch (e) {
+      if (!mounted) return;
+      _memoryMsg = 'AI Study Memory लोड नहीं हुई (कारण: ${_errorCode(e)})। कृपया अनुमति और इंटरनेट जाँचकर फिर कोशिश करें।';
+      _memoryError = true;
+      _memoryLoaded = false;
+    }
+    if (mounted) setState(() => _loadingMemory = false);
   }
 
   String _asLines(dynamic value) =>
@@ -90,6 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveMemory() async {
+    if (!_memoryLoaded) return;
     setState(() { _savingMemory = true; _memoryMsg = null; });
     try {
       await widget.repo.saveStudyMemory(
@@ -111,6 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _clearMemory() async {
+    if (!_memoryLoaded) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -178,11 +229,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _memoryField(String label, TextEditingController controller,
-      {int lines = 3, int maxLength = 2000, String? hint}) {
+      {int lines = 3, int maxLength = 2000, String? hint, bool readOnly = false}) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: TextField(
         controller: controller,
+        readOnly: readOnly,
         minLines: lines,
         maxLines: lines + 2,
         maxLength: maxLength,
@@ -210,6 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _name,
+                  readOnly: !_profileLoaded,
                   decoration: const InputDecoration(labelText: 'आपका नाम'),
                 ),
                 const SizedBox(height: 14),
@@ -221,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     DropdownMenuItem(value: 'en', child: Text('English')),
                     DropdownMenuItem(value: 'hinglish', child: Text('Hinglish')),
                   ],
-                  onChanged: (v) => setState(() => _lang = v ?? 'hi'),
+                  onChanged: _profileLoaded ? (v) => setState(() => _lang = v ?? 'hi') : null,
                 ),
                 if (_msg != null)
                   Padding(
@@ -231,7 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || !_profileLoaded ? null : _save,
                   child: const Text('प्रोफ़ाइल सेव करें'),
                 ),
                 const Divider(height: 36),
@@ -240,13 +293,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 6),
                 const Text('यह जानकारी केवल आपके खाते में रहती है। AI Teacher इसे आपके स्तर और पसंद के अनुसार पढ़ाने के लिए उपयोग करेगा।'),
                 _memoryField('मेरी पढ़ाई का सार', _memorySummary,
-                    hint: 'जैसे: कक्षा 12, बोर्ड परीक्षा की तैयारी, रोज़ 2 घंटे'),
+                    readOnly: !_memoryLoaded, hint: 'जैसे: कक्षा 12, बोर्ड परीक्षा की तैयारी, रोज़ 2 घंटे'),
                 _memoryField('मेरे मजबूत विषय (हर लाइन में एक)', _strengths,
-                    maxLength: 720, hint: 'जैसे: गणित\nभौतिकी'),
+                    readOnly: !_memoryLoaded, maxLength: 720, hint: 'जैसे: गणित\nभौतिकी'),
                 _memoryField('जिन विषयों में मदद चाहिए (हर लाइन में एक)', _weakTopics,
-                    maxLength: 720, hint: 'जैसे: रसायन विज्ञान\nओम का नियम'),
+                    readOnly: !_memoryLoaded, maxLength: 720, hint: 'जैसे: रसायन विज्ञान\nओम का नियम'),
                 _memoryField('मुझे किस तरह समझाना पसंद है?', _preferredStyle,
-                    maxLength: 300, lines: 2,
+                    readOnly: !_memoryLoaded, maxLength: 300, lines: 2,
                     hint: 'जैसे: आसान हिंदी, छोटे उदाहरण और चरण-दर-चरण'),
                 if (_memoryMsg != null)
                   Padding(
@@ -254,9 +307,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text(_memoryMsg!,
                         style: TextStyle(color: _memoryError ? kError : kTeal)),
                   ),
+                if (!_memoryLoaded)
+                  OutlinedButton.icon(
+                    onPressed: _loadingMemory ? null : _reloadMemory,
+                    icon: _loadingMemory
+                        ? const SizedBox(width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.refresh),
+                    label: const Text('AI Study Memory फिर से लोड करें'),
+                  ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: _savingMemory ? null : _saveMemory,
+                  onPressed: _savingMemory || !_memoryLoaded ? null : _saveMemory,
                   icon: _savingMemory
                       ? const SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2))
@@ -265,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _savingMemory ? null : _clearMemory,
+                  onPressed: _savingMemory || !_memoryLoaded ? null : _clearMemory,
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('मेरी लिखी AI Study Memory खाली करें'),
                 ),
