@@ -49,16 +49,31 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
   }
 
   Future<void> _loadVoicePreference() async {
+    final user = _user;
+    if (user == null) return;
+    final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    Map<String, dynamic> profile = {};
+    Map<String, dynamic> answers = {};
+
+    // Read independently: a missing/denied legacy setup document must not
+    // override a valid editable profile language, and vice versa.
     try {
-      final user = _user;
-      if (user == null) return;
-      final data = (await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('onboarding').doc('answers').get()).data() ?? {};
-      final language = data['language'];
-      final locale = language == 'en' ? 'en-US' : 'hi-IN';
-      if (mounted) setState(() => _voiceLocale = locale);
+      profile = (await root.get()).data() ?? <String, dynamic>{};
     } catch (_) {
-      // Keep Hindi as the safe default when no preference is saved.
+      // Study Setup remains the fallback for older accounts.
     }
+    try {
+      answers = (await root.collection('onboarding').doc('answers').get()).data() ??
+          <String, dynamic>{};
+    } catch (_) {
+      // Keep the Hindi default if neither source has a supported locale.
+    }
+
+    final locale = resolveVoiceLocale(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (mounted) setState(() => _voiceLocale = locale);
   }
 
   Future<void> _initializeVoice() async {

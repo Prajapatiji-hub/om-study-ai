@@ -17,6 +17,8 @@ void main() {
     test('does not stop voice when app is resumed', () {
       expect(shouldStopVoiceForLifecycleState(AppLifecycleState.resumed), isFalse);
     });
+  });
+
   group('canStartVoiceForLifecycleState', () {
     test('allows voice only while app is resumed', () {
       expect(canStartVoiceForLifecycleState(AppLifecycleState.resumed), isTrue);
@@ -27,5 +29,53 @@ void main() {
     });
   });
 
+  group('resolveVoiceLocale', () {
+    test('prefers the editable profile language over the original setup', () {
+      expect(
+        resolveVoiceLocale(
+          profile: {'language': 'en'},
+          setupAnswers: {'language': 'hi'},
+        ),
+        'en-US',
+      );
+      expect(
+        resolveVoiceLocale(
+          profile: {'language': 'hi'},
+          setupAnswers: {'language': 'en'},
+        ),
+        'hi-IN',
+      );
+    });
+
+    test('falls back to Study Setup when the profile locale is missing or invalid', () {
+      expect(
+        resolveVoiceLocale(
+          profile: {},
+          setupAnswers: {'language': 'en'},
+        ),
+        'en-US',
+      );
+      expect(
+        resolveVoiceLocale(
+          profile: {'language': 'unsupported'},
+          setupAnswers: {'language': 'hinglish'},
+        ),
+        'hi-IN',
+      );
+    });
+
+    test('uses Hindi locale for Hinglish and for an unknown preference', () {
+      expect(
+        resolveVoiceLocale(
+          profile: {'language': 'hinglish'},
+          setupAnswers: {},
+        ),
+        'hi-IN',
+      );
+      expect(
+        resolveVoiceLocale(profile: {}, setupAnswers: {}),
+        'hi-IN',
+      );
+    });
   });
 }
