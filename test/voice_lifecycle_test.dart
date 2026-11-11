@@ -29,6 +29,52 @@ void main() {
     });
   });
 
+  group('voiceRecognitionErrorMessage', () {
+    test('guides a permanently denied microphone permission to Android settings', () {
+      final message = voiceRecognitionErrorMessage(
+        error: 'error_permission',
+        permanent: true,
+      );
+      expect(message, contains('Android Settings'));
+      expect(message, contains('Microphone'));
+    });
+
+    test('asks for an in-app permission grant after a transient denial', () {
+      final message = voiceRecognitionErrorMessage(
+        error: 'permission_denied',
+        permanent: false,
+      );
+      expect(message, contains('Allow'));
+      expect(message, isNot(contains('Android Settings')));
+    });
+
+    test('explains when the device speech service is unavailable', () {
+      expect(
+        voiceRecognitionErrorMessage(
+          error: 'error_not_available',
+          permanent: false,
+        ),
+        contains('Speech Recognition सेवा उपलब्ध नहीं है'),
+      );
+    });
+
+    test('gives recovery guidance for other permanent speech failures', () {
+      final message = voiceRecognitionErrorMessage(
+        error: 'error_speech_timeout',
+        permanent: true,
+      );
+      expect(message, contains('Microphone अनुमति'));
+      expect(message, contains('Speech/Google voice service'));
+    });
+
+    test('keeps transient unknown failures retryable', () {
+      expect(
+        voiceRecognitionErrorMessage(error: 'network_error', permanent: false),
+        contains('फिर कोशिश करें'),
+      );
+    });
+  });
+
   group('resolveVoiceLocale', () {
     test('prefers the editable profile language over the original setup', () {
       expect(

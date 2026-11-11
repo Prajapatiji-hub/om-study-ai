@@ -82,19 +82,56 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       await _tts.setPitch(1.0);
       _speechReady = await _speech.initialize(
         onStatus: (status) { if (!mounted || !_appInForeground) return; setState(() => _listening = status == 'listening'); },
-        onError: (error) { if (!mounted || !_appInForeground) return; setState(() { _listening = false; _error = 'आवाज़ पहचानने में समस्या हुई। कृपया दोबारा कोशिश करें।'; }); },
+        onError: (error) {
+          if (!mounted || !_appInForeground) return;
+          setState(() {
+            _listening = false;
+            _error = voiceRecognitionErrorMessage(
+              error: error.errorMsg,
+              permanent: error.permanent,
+            );
+          });
+        },
       );
-      if (mounted) setState(() {});
-    } catch (_) {
+      if (mounted) {
+        setState(() {
+          if (!_speechReady && _error == null) {
+            _error = voiceRecognitionErrorMessage(
+              error: 'not_available',
+              permanent: false,
+            );
+          }
+        });
+      }
+    } catch (error) {
       _speechReady = false;
+      if (mounted) {
+        setState(() {
+          _error ??= voiceRecognitionErrorMessage(
+            error: error.toString(),
+            permanent: false,
+          );
+        });
+      }
     }
   }
 
   Future<void> _toggleListening() async {
     if (_listening) { await _speech.stop(); if (mounted) setState(() => _listening = false); return; }
-    if (!_speechReady) await _initializeVoice();
+    if (!_speechReady) {
+      if (mounted) setState(() => _error = null);
+      await _initializeVoice();
+    }
     if (!mounted || !_appInForeground) return;
-    if (!_speechReady) { if (mounted) setState(() => _error = 'इस फोन में Speech Recognition उपलब्ध नहीं है।'); return; }
+    if (!_speechReady) {
+      if (mounted && _error == null) {
+        setState(() => _error = voiceRecognitionErrorMessage(
+          error: 'not_available',
+          permanent: false,
+        ));
+      }
+      return;
+    }
     try {
       await _speech.listen(
         onResult: (result) {
@@ -110,8 +147,16 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       );
       if (mounted && _appInForeground) setState(() { _listening = true; _error = null; });
       if (!_appInForeground) await _speech.stop();
-    } catch (_) {
-      if (mounted) setState(() { _listening = false; _error = 'माइक्रोफ़ोन शुरू नहीं हो पाया। अनुमति जाँचें।'; });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _listening = false;
+          _error = voiceRecognitionErrorMessage(
+            error: error.toString(),
+            permanent: false,
+          );
+        });
+      }
     }
   }
 
