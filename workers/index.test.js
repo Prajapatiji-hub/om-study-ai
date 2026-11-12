@@ -99,6 +99,27 @@ test("quiz schema accepts valid quizzes and rejects invalid counts, duplicate op
   assert.equal(isValidQuizResponse({ title: " ", questions: [validQuestion()] }, 1), false);
 });
 
+test("quiz schema rejects duplicate questions after Unicode, case, punctuation and whitespace normalization", () => {
+  const first = validQuestion();
+  const duplicateQuestion = validQuestion();
+  duplicateQuestion.question = "  2+2  ";
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [first, duplicateQuestion] }, 2), false);
+
+  const distinctQuestion = validQuestion();
+  distinctQuestion.question = "3 + 3?";
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [first, distinctQuestion] }, 2), true);
+});
+
+test("quiz schema rejects options that only differ by case or whitespace", () => {
+  const whitespaceDuplicates = validQuestion();
+  whitespaceDuplicates.options = ["4", " 4 ", "5", "6"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [whitespaceDuplicates] }, 1), false);
+
+  const caseDuplicates = validQuestion();
+  caseDuplicates.options = ["A", "a", "B", "C"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [caseDuplicates] }, 1), false);
+});
+
 test("Worker rejects requests with no Firebase bearer token", async () => {
   const response = await Worker.fetch(
     new Request("https://worker.example.test", { method: "POST", body: JSON.stringify({ message: "hello" }) }),

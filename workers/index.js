@@ -195,16 +195,39 @@ export async function generateImageForStudent(env, userId, prompt) {
   }
 }
 
+function normalizeQuizTextForUniqueness(value) {
+  if (typeof value !== "string") return "";
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{M}\\p{N}]+/gu, " ").trim();
+}
+
 export function isValidQuizResponse(quiz, expectedCount) {
   const questions = quiz?.questions;
-  return Boolean(quiz && typeof quiz.title === "string" && quiz.title.trim().length > 0 &&
-    quiz.title.length <= 100 && Array.isArray(questions) && questions.length === expectedCount &&
-    questions.every((q) => q && typeof q.question === "string" && q.question.trim().length > 0 &&
-      q.question.length <= 1000 && Array.isArray(q.options) && q.options.length === 4 &&
-      q.options.every((v) => typeof v === "string" && v.trim().length > 0 && v.length <= 300) &&
-      new Set(q.options).size === 4 && Number.isInteger(q.answerIndex) && q.answerIndex >= 0 &&
-      q.answerIndex < 4 && typeof q.explanation === "string" && q.explanation.length <= MAX_EXPLANATION_CHARS &&
-      typeof q.topic === "string" && q.topic.trim().length > 0 && q.topic.length <= MAX_QUIZ_TOPIC_CHARS));
+  if (!quiz || typeof quiz.title !== "string" || !quiz.title.trim() ||
+      quiz.title.length > 100 || !Array.isArray(questions) ||
+      questions.length !== expectedCount) return false;
+
+  const seenQuestions = new Set();
+  return questions.every((q) => {
+    if (!q || typeof q.question !== "string" || !q.question.trim() ||
+        q.question.length > 1000 || !Array.isArray(q.options) ||
+        q.options.length !== 4 ||
+        !q.options.every((v) => typeof v === "string" && v.trim() && v.length <= 300) ||
+        !Number.isInteger(q.answerIndex) || q.answerIndex < 0 || q.answerIndex >= 4 ||
+        typeof q.explanation !== "string" || q.explanation.length > MAX_EXPLANATION_CHARS ||
+        typeof q.topic !== "string" || !q.topic.trim() || q.topic.length > MAX_QUIZ_TOPIC_CHARS) {
+      return false;
+    }
+
+    const normalizedQuestion = normalizeQuizTextForUniqueness(q.question);
+    const normalizedOptions = q.options.map(normalizeQuizTextForUniqueness);
+    if (!normalizedQuestion || seenQuestions.has(normalizedQuestion) ||
+        normalizedOptions.some((option) => !option) ||
+        new Set(normalizedOptions).size !== 4) {
+      return false;
+    }
+    seenQuestions.add(normalizedQuestion);
+    return true;
+  });
 }
 
 export async function readJsonRequest(request, maxBytes = 16000) {
@@ -241,6 +264,7 @@ export function systemInstruction(mode, languageCode = "hi") {
         "केवल इस सटीक आकार का JSON लौटाओ, Markdown या अतिरिक्त पाठ नहीं: " + quizResponseShape,
         "title खाली न हो और 100 अक्षरों से अधिक न हो। questions में माँगी गई संख्या के बराबर प्रश्न हों।",
         "हर question खाली न हो और 1000 अक्षरों से अधिक न हो। options में ठीक 4 अलग, खाली न होने वाले विकल्प हों; हर विकल्प 300 अक्षरों तक हो।",
+        "एक ही प्रश्न या अर्थ में समान प्रश्न दोहराओ मत। चारों विकल्प भी सामान्यीकरण के बाद अलग होने चाहिए; केवल बड़े/छोटे अक्षर, अतिरिक्त spaces या punctuation बदलकर विकल्प अलग न दिखाओ।",
         "answerIndex केवल 0, 1, 2 या 3 हो। explanation 2000 अक्षरों तक और topic खाली न हो तथा 120 अक्षरों तक हो।",
         "प्रश्न आसान से चुनौतीपूर्ण क्रम में हों। हाल की गलतियों को तभी शामिल करो जब वे माँगे गए विषय से संबंधित हों; असंबंधित विषय पर मत भटको।",
         "इसे AI-generated अभ्यास बताओ, आधिकारिक PYQ नहीं।",
