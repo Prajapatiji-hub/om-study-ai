@@ -21,7 +21,7 @@
 ## 1. Release status snapshot
 
 Latest reviewed source snapshot (12 November 2026; update after each candidate build):
-- PR #21 and PR #22 remain open Draft and unmerged. PR #21 targets `main`, with head `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`. PR #22 targets PR #21's feature branch, with head `feature/ai-chat-sessions` at `299757e055961079f67e97b81bd40d34b75723d9`.
+- PR #21 and PR #22 remain open Draft and unmerged. PR #21 targets `main`, with head `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`. PR #22 targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` and remains open for the latest corrective commit.
 - Latest successful Build APK workflow is Build #198 (run ID `42948549234`) for commit `299757e055961079f67e97b81bd40d34b75723d9`. Its single build job completed all 18 reported execution/cleanup steps successfully, including Worker checks, Flutter Analyze, Flutter tests, Firestore Rules Emulator tests, release APK build and artifact upload.
 - Build #198 artifact `om-study-ai-apk` (artifact ID `13824915032`) is present and not expired: 26,051,692 bytes; ZIP SHA-256 `0e67dd7702b8649683121e6e8c452a9ebec930df46b853bc66bf29e3672b6b86`; created 11 November 2026 at 02:54:22 UTC and expires 9 February 2027 at 02:48:51 UTC. The extracted APK is 54,804,101 bytes; SHA-256 `bef2add7b79c82467151500035a5d4f8a8069df83377fc91d2e84187e309525a`. The GitHub artifact digest matches the downloaded ZIP digest. This is a CI candidate, not physical-device acceptance.
 - Build #198 passed Worker JavaScript checks 24/24, Flutter Analyze with no issues, all 77 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload. All step summaries and the completed job log confirm success.
@@ -37,6 +37,8 @@ Latest reviewed source snapshot (12 November 2026; update after each candidate b
 - Worker image responses are base64-decoded and checked for bounded JPEG SOI/EOI markers before returning; Build #194 passed the image success-path and moderation/rate-limit tests.
 - Shared curated-memory formatting for AI Teacher and adaptive quiz uses the same 900-character summary, eight unique strengths/weak topics (60 characters each), and 240-character preferred-style bounds; its regression tests passed in Build #195 and remain covered by later builds.
 - Build #198 emitted a non-fatal GitHub Actions Node.js 20 deprecation warning for checkout@v4, setup-java@v4 and upload-artifact@v4. This did not fail the build; action upgrades should be reviewed separately.
+- Build #199 (run ID `43142671232`; commit `e29851a8c33241b455722503adb22638aa717f9f`) failed at Flutter Analyze after the stable Flutter 3.50 SDK began reporting 19 info-level `deprecated_member_use` diagnostics for `package:flutter/material.dart` imports. Worker checks passed; Flutter tests, Firestore Emulator tests, NDK installation, APK build and artifact upload were skipped. No Build #199 artifact exists.
+- The Build #199 correction migrates all 19 app imports to the official `material_ui` package and raises the declared minimum to Dart 3.13 / Flutter 3.47. Build #200 CI validation is pending.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 ## 1A. Latest focused audit findings (7 November 2026)
 
@@ -172,9 +174,9 @@ Test each flow on a clean install and on an existing account:
 - [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
 - [x] Build #187 passed Worker JavaScript checks (23/23), Flutter Analyze, all 55 Flutter tests, Firestore Rules Emulator tests (5/5), release APK build and artifact upload.
 - [x] Worker moderation tests require the entire trimmed Llama Guard response to equal `safe`; actual newline/category suffixes and literal escaped suffixes are rejected.
-- [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. A truncated-image regression test is included in the next commit; Build #199 CI validation is pending.
+- [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. A truncated-image regression test is included in commit `e29851a8c33241b455722503adb22638aa717f9f`; Build #199 stopped at Analyze before running it, so Build #200 validation is pending.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
-- [ ] Build #199 will validate the client-side JPEG end-marker check and truncated-payload regression test.
+- [ ] Build #200 will validate the client-side JPEG end-marker check and truncated-payload regression test.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
  
