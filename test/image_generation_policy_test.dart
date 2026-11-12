@@ -70,5 +70,20 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('rejects truncated JPEG payloads without the end-of-image marker', () {
+      for (final truncated in [
+        [0xFF, 0xD8, 0xFF],
+        [0xFF, 0xD8, 0xFF, 0x00],
+      ]) {
+        expect(
+          () => decodeGeneratedImagePayload({
+            'mimeType': 'image/jpeg',
+            'image': base64Encode(truncated),
+          }),
+          throwsFormatException,
+        );
+      }
+    });
   });
 }

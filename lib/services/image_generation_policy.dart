@@ -10,9 +10,9 @@ String validateImagePrompt(String value) {
   return prompt;
 }
 
-/// Decodes only a bounded JPEG payload returned by the authenticated Worker.
-/// Reject unexpected MIME types, malformed base64 and non-JPEG bytes before
-/// the image is passed to Flutter's renderer.
+/// Decodes only a bounded, complete JPEG payload returned by the authenticated Worker.
+/// Reject unexpected MIME types, malformed base64, non-JPEG headers and missing
+/// JPEG end markers before the image is passed to Flutter's renderer.
 Uint8List decodeGeneratedImagePayload(Map<String, dynamic> payload) {
   if (payload['mimeType'] != 'image/jpeg') {
     throw const FormatException('Unsupported image MIME type.');
@@ -27,11 +27,13 @@ Uint8List decodeGeneratedImagePayload(Map<String, dynamic> payload) {
   }
 
   final bytes = base64Decode(encoded);
-  if (bytes.length < 3 ||
+  if (bytes.length < 4 ||
       bytes.length > 6000000 ||
       bytes[0] != 0xFF ||
       bytes[1] != 0xD8 ||
-      bytes[2] != 0xFF) {
+      bytes[2] != 0xFF ||
+      bytes[bytes.length - 2] != 0xFF ||
+      bytes[bytes.length - 1] != 0xD9) {
     throw const FormatException('Invalid JPEG image payload.');
   }
 
