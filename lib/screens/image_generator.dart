@@ -116,7 +116,7 @@ class _ImageGeneratorScreenState extends State<ImageGeneratorScreen> {
                   child: Image.memory(
                     _image!,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Padding(
+                    errorBuilder: (_, _, _) => const Padding(
                       padding: EdgeInsets.all(20),
                       child: Text('चित्र दिखाया नहीं जा सका।'),
                     ),

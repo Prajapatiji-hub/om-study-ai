@@ -38,7 +38,8 @@ Latest reviewed source snapshot (12 November 2026; update after each candidate b
 - Shared curated-memory formatting for AI Teacher and adaptive quiz uses the same 900-character summary, eight unique strengths/weak topics (60 characters each), and 240-character preferred-style bounds; its regression tests passed in Build #195 and remain covered by later builds.
 - Build #198 emitted a non-fatal GitHub Actions Node.js 20 deprecation warning for checkout@v4, setup-java@v4 and upload-artifact@v4. This did not fail the build; action upgrades should be reviewed separately.
 - Build #199 (run ID `43142671232`; commit `e29851a8c33241b455722503adb22638aa717f9f`) failed at Flutter Analyze after the stable Flutter 3.50 SDK began reporting 19 info-level `deprecated_member_use` diagnostics for `package:flutter/material.dart` imports. Worker checks passed; Flutter tests, Firestore Emulator tests, NDK installation, APK build and artifact upload were skipped. No Build #199 artifact exists.
-- The Build #199 correction migrates all 19 app imports to the official `material_ui` package and raises the declared minimum to Dart 3.13 / Flutter 3.47. Build #200 CI validation is pending.
+- Build #200 (run ID `43143253269`; commit `30099fe671b4806fc53ec77cf5f8790f7c818532`) confirmed the `material_ui` migration and dependency resolution, then failed Analyze on three `unnecessary_underscores` diagnostics in two unused callback signatures. Flutter tests, Rules Emulator, NDK, APK and artifact upload were skipped; no artifact exists. Build #201 will validate the cleanup.
+- The Build #199 correction migrates all 19 app imports to the official `material_ui` package and raises the declared minimum to Dart 3.13 / Flutter 3.47. Build #200 resolved dependencies and passed the import migration, but Analyze found three info-level `unnecessary_underscores` diagnostics in unused callback parameters in `image_generator.dart` and `notes.dart`; Flutter tests, Rules Emulator, NDK, APK and artifact upload were skipped, and no artifact exists. Build #201 includes the exact callback cleanup.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 ## 1A. Latest focused audit findings (7 November 2026)
 
@@ -174,9 +175,9 @@ Test each flow on a clean install and on an existing account:
 - [x] Image generation has no Gemini, third-party or paid fallback. On Workers Free, Workers AI has a shared 10,000 Neurons/day allocation; further operations fail after the allowance is exceeded. If the account is on Workers Paid, overage may be billed; do not upgrade or enable billing.
 - [x] Build #187 passed Worker JavaScript checks (23/23), Flutter Analyze, all 55 Flutter tests, Firestore Rules Emulator tests (5/5), release APK build and artifact upload.
 - [x] Worker moderation tests require the entire trimmed Llama Guard response to equal `safe`; actual newline/category suffixes and literal escaped suffixes are rejected.
-- [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. A truncated-image regression test is included in commit `e29851a8c33241b455722503adb22638aa717f9f`; Build #199 stopped at Analyze before running it, so Build #200 validation is pending.
+- [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. A truncated-image regression test is included in commit `e29851a8c33241b455722503adb22638aa717f9f`; Builds #199 and #200 stopped at Analyze before running it, so Build #201 validation is pending.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
-- [ ] Build #200 will validate the client-side JPEG end-marker check and truncated-payload regression test.
+- [ ] Build #201 will validate the client-side JPEG end-marker check and truncated-payload regression test.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
  
