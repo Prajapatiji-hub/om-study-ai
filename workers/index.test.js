@@ -89,9 +89,12 @@ test("Worker rejects a ninth message and malformed chat history", () => {
 });
 
 const validQuestion = () => ({ question: "2 + 2?", options: ["3", "4", "5", "6"], answerIndex: 1, explanation: "2 + 2 = 4", topic: "arithmetic" });
-test("quiz schema accepts valid quizzes and rejects invalid counts, duplicate options and answer indexes", () => {
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [validQuestion(), validQuestion(), validQuestion()] }, 3), true);
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [validQuestion()] }, 3), false);
+test("quiz schema accepts distinct valid questions and rejects invalid counts, duplicate options and answer indexes", () => {
+  const first = validQuestion();
+  const second = { ...validQuestion(), question: "3 + 3?", options: ["5", "6", "7", "8"], answerIndex: 1, explanation: "3 + 3 = 6" };
+  const third = { ...validQuestion(), question: "4 + 4?", options: ["7", "8", "9", "10"], answerIndex: 1, explanation: "4 + 4 = 8" };
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [first, second, third] }, 3), true);
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [first] }, 3), false);
   const duplicate = validQuestion(); duplicate.options[3] = "3";
   assert.equal(isValidQuizResponse({ title: "Math", questions: [duplicate] }, 1), false);
   const invalidIndex = validQuestion(); invalidIndex.answerIndex = 4;
@@ -101,16 +104,22 @@ test("quiz schema accepts valid quizzes and rejects invalid counts, duplicate op
 
 test("quiz schema rejects duplicate questions after Unicode, case, punctuation and whitespace normalization", () => {
   const first = validQuestion();
+  first.question = "What is OHM?";
   const duplicateQuestion = validQuestion();
-  duplicateQuestion.question = "  2+2  ";
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [first, duplicateQuestion] }, 2), false);
+  duplicateQuestion.question = "  what   is ohm! ";
+  assert.equal(isValidQuizResponse({ title: "Physics", questions: [first, duplicateQuestion] }, 2), false);
+
+  const asciiQuestion = validQuestion();
+  const fullWidthDuplicate = validQuestion();
+  fullWidthDuplicate.question = "２＋２？";
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [asciiQuestion, fullWidthDuplicate] }, 2), false);
 
   const distinctQuestion = validQuestion();
   distinctQuestion.question = "3 + 3?";
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [first, distinctQuestion] }, 2), true);
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [asciiQuestion, distinctQuestion] }, 2), true);
 });
 
-test("quiz schema rejects options that only differ by case or whitespace", () => {
+test("quiz schema rejects options that only differ by case, Unicode form or whitespace", () => {
   const whitespaceDuplicates = validQuestion();
   whitespaceDuplicates.options = ["4", " 4 ", "5", "6"];
   assert.equal(isValidQuizResponse({ title: "Math", questions: [whitespaceDuplicates] }, 1), false);
@@ -118,6 +127,10 @@ test("quiz schema rejects options that only differ by case or whitespace", () =>
   const caseDuplicates = validQuestion();
   caseDuplicates.options = ["A", "a", "B", "C"];
   assert.equal(isValidQuizResponse({ title: "Math", questions: [caseDuplicates] }, 1), false);
+
+  const unicodeDuplicates = validQuestion();
+  unicodeDuplicates.options = ["2", "２", "3", "4"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [unicodeDuplicates] }, 1), false);
 });
 
 test("Worker rejects requests with no Firebase bearer token", async () => {

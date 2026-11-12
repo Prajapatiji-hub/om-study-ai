@@ -197,7 +197,7 @@ export async function generateImageForStudent(env, userId, prompt) {
 
 function normalizeQuizTextForUniqueness(value) {
   if (typeof value !== "string") return "";
-  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{M}\\p{N}]+/gu, " ").trim();
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
 }
 
 export function isValidQuizResponse(quiz, expectedCount) {
