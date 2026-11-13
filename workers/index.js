@@ -197,7 +197,14 @@ export async function generateImageForStudent(env, userId, prompt) {
 
 function normalizeQuizTextForUniqueness(value) {
   if (typeof value !== "string") return "";
-  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
+  return value.normalize("NFKC")
+    .toLowerCase()
+    // Keep mathematical/programming operators: C and C++, or 2+2 and 2-2,
+    // are different answers/questions even when ordinary punctuation is ignored.
+    .replace(/([+\\-*/=<>%×÷^])/g, " $1 ")
+    .replace(/[^\\p{L}\\p{M}\\p{N}+\\-*/=<>%×÷^]+/gu, " ")
+    .trim()
+    .replace(/\\s+/g, " ");
 }
 
 export function isValidQuizResponse(quiz, expectedCount) {

@@ -133,6 +133,30 @@ test("quiz schema rejects options that only differ by case, Unicode form or whit
   assert.equal(isValidQuizResponse({ title: "Math", questions: [unicodeDuplicates] }, 1), false);
 });
 
+test("quiz uniqueness preserves mathematical and programming operators", () => {
+  const addition = validQuestion();
+  addition.question = "Solve 2+2?";
+  const subtraction = validQuestion();
+  subtraction.question = "Solve 2 - 2?";
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [addition, subtraction] }, 2), true);
+
+  const c = validQuestion();
+  c.question = "What is C?";
+  const cpp = validQuestion();
+  cpp.question = "What is C++?";
+  assert.equal(isValidQuizResponse({ title: "Programming", questions: [c, cpp] }, 2), true);
+
+  const compact = validQuestion();
+  compact.options = ["2+2", "5", "6", "7"];
+  const spaced = validQuestion();
+  spaced.options = ["2 + 2", "5", "6", "7"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [{ ...validQuestion(), options: ["2+2", "5", "6", "7"] }] }, 1), true);
+  const duplicateOptions = validQuestion();
+  duplicateOptions.options = ["2+2", "2 + 2", "3", "4"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [duplicateOptions] }, 1), false);
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [compact, spaced] }, 2), true);
+});
+
 test("Worker rejects requests with no Firebase bearer token", async () => {
   const response = await Worker.fetch(
     new Request("https://worker.example.test", { method: "POST", body: JSON.stringify({ message: "hello" }) }),

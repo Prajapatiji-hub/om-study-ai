@@ -20,23 +20,21 @@
 
 ## 1. Release status snapshot
 
-Latest reviewed source snapshot (12 November 2026; Build #201):
+Latest reviewed source snapshot (13 November 2026; Build #203):
 - PR #21 remains open, Draft and unmerged; it targets `main` from `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
-- PR #22 remains open, Draft and unmerged; it targets PR #21's feature branch. Its head is `feature/ai-chat-sessions` at `9dbf62a7e940ddbdac81493f1b44ee3479ea37b7`.
-- Latest successful Build APK workflow is Build #201 (run ID `43143475119`) for commit `9dbf62a7e940ddbdac81493f1b44ee3479ea37b7`. The single build job completed all 18 reported execution/cleanup steps successfully.
-- Build #201 artifact is `om-study-ai-apk` (artifact ID `13910498188`), not expired: 26,003,989 bytes; ZIP SHA-256 `c1c804ca202d7d652481044f8c36354ff3aed53ec301208be2d543e13e9411db`; expires 10 February 2027 at 02:44:30 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
-- Extracted Build #201 APK is 53,940,214 bytes; SHA-256 `8056cff55b50e83e2512d582c1b2ec387fbcb839045d61652379d12838fa2b83`. This is a CI candidate, not physical-device acceptance.
-- Build #201 passed Worker JavaScript tests 24/24, Flutter Analyze with no issues, all 78 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload. The completed job log and step summaries confirm success.
-- Build #199 (run ID `43142671232`) failed at Flutter Analyze with 19 info-level `deprecated_member_use` diagnostics after Flutter 3.50 changed the Material import guidance. Build #200 (run ID `43143253269`) passed dependency resolution but failed Analyze on three `unnecessary_underscores` diagnostics in unused callback parameters. Neither failed run produced an APK artifact.
-- Build #202 (run ID `43146017853`; commit `222116c2de0faf44e48b19a4c84229a6a7c6df5a`) failed in Worker JavaScript tests before Flutter setup. The new normalized duplicate-question validator used an over-escaped Unicode-property regex, and the previous valid-schema fixture reused the same question three times. Logs confirmed two failing tests; all later steps were skipped and no artifact was produced. Build #203 contains the regex and fixture correction.
-- Build #201 includes the official `material_ui` import migration and cleanup of the unused callback parameters; Analyze, tests and APK build now pass.
+- PR #22 remains open, Draft and unmerged; it targets PR #21's feature branch. Its head is `feature/ai-chat-sessions` at `ccf9d9712492de1c79caf2828c57851010ce4a34`.
+- Latest successful Build APK workflow is Build #203 (run ID `43146185682`) for commit `ccf9d9712492de1c79caf2828c57851010ce4a34`. Its single build job completed all 18 execution/cleanup steps successfully.
+- Build #203 artifact is `om-study-ai-apk` (artifact ID `13911463601`), not expired: 26,003,981 bytes; ZIP SHA-256 `c8de1097c27eec66bf93eebb9cf3e684675d3db810dcbd711fce95d064893c21`; expires 10 February 2027 at 03:08:40 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
+- Extracted Build #203 APK is 53,940,214 bytes; SHA-256 `d71a4e6daf1c04b0537399600458d0bf93552f66123185cad730a8be3120db1c`. This is a CI candidate, not physical-device acceptance.
+- Build #203 passed Worker JavaScript tests 26/26, Flutter Analyze with no issues, all 78 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload.
+- Build #202 (run ID `43146017853`; commit `222116c2de0faf44e48b19a4c84229a6a7c6df5a`) failed in Worker JavaScript tests before Flutter setup. The normalized duplicate-question validator used an over-escaped Unicode-property regex, and the prior valid-schema fixture reused one question three times. Build #203 corrected both; its 26 Worker tests passed.
 - Adaptive quiz context uses the same student's Study Setup, profile goals/language, editable AI Study Memory, recent quiz attempts, recent chat questions and legacy student-authored prompts. Malformed answer indexes/options, impossible scores and oversized context are rejected or bounded.
 - AI Teacher receives the student's recent quiz scores, repeated incorrect topics and incorrect question prompts, plus bounded cross-chat history and legacy chat context. Student context is sent as untrusted user data, separate from system instructions.
 - The account-lifecycle preservation patch, editable private AI Study Memory, bounded adaptive context, locale resolution and student-only legacy chat prompt extraction remain source- and CI-verified; production Rules publication and phone isolation tests remain pending.
 - Profile loading treats the profile and editable AI Study Memory as independent reads. A Memory permission/network failure no longer hides profile data or Study Setup editing; Memory fields remain read-only until retry succeeds, preventing accidental blank overwrites.
 - Voice locale follows the editable profile language first, then Study Setup; English maps to `en-US`, Hindi/Hinglish to `hi-IN`. Voice permission/error guidance has automated coverage, but real-device settings recovery remains pending.
 - Image-generation source is included: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), bounded JPEG validation, in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
-- Build #201's generated-quiz validator enforced exact question count, four options, valid answer index and bounded fields, but did not yet reject repeated question text or equivalent options. Commit `222116c2de0faf44e48b19a4c84229a6a7c6df5a` added normalized duplicate checks; Build #202 exposed an over-escaped Unicode-property regex and a legacy test fixture that intentionally repeated the same question. The correction now uses real Unicode normalization and distinct valid fixtures; Build #203 must validate it.
+- The quiz uniqueness validator now rejects repeated questions/options after Unicode, case, punctuation and whitespace normalization. The next source correction preserves meaningful mathematical/programming operators so distinct items such as `C`/ `C++` and `2+2`/ `2-2` are not falsely treated as duplicates; Build #204 will validate this regression coverage.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
 ## 1A. Latest focused audit findings (7 November 2026)
@@ -175,7 +173,7 @@ Test each flow on a clean install and on an existing account:
 - [x] Worker moderation tests require the entire trimmed Llama Guard response to equal `safe`; actual newline/category suffixes and literal escaped suffixes are rejected.
 - [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. A truncated-image regression test is included in commit `e29851a8c33241b455722503adb22638aa717f9f`; Builds #199 and #200 stopped at Analyze before running it, so Build #201 validation is pending.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
-- [ ] Build #201 will validate the client-side JPEG end-marker check and truncated-payload regression test.
+- [x] Build #201's successful Worker test run (24/24) and later Build #203 validation include the client-side JPEG end-marker check and truncated-payload regression coverage; physical image-generation tests remain pending.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.
  
