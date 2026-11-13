@@ -197,14 +197,11 @@ export async function generateImageForStudent(env, userId, prompt) {
 
 function normalizeQuizTextForUniqueness(value) {
   if (typeof value !== "string") return "";
-  return value.normalize("NFKC")
-    .toLowerCase()
-    // Keep mathematical/programming operators: C and C++, or 2+2 and 2-2,
-    // are different answers/questions even when ordinary punctuation is ignored.
-    .replace(/([+\\-*/=<>%×÷^])/g, " $1 ")
-    .replace(/[^\\p{L}\\p{M}\\p{N}+\\-*/=<>%×÷^]+/gu, " ")
-    .trim()
-    .replace(/\\s+/g, " ");
+  // Tokenize letters/numbers and meaningful operators separately. This
+  // ignores ordinary punctuation while keeping C++ distinct from C and
+  // addition distinct from subtraction, regardless of operator spacing.
+  return value.normalize("NFKC").toLowerCase()
+    .match(/[\p{L}\p{M}\p{N}]+|[+\-*/=<>%×÷^]/gu)?.join(" ") || "";
 }
 
 export function isValidQuizResponse(quiz, expectedCount) {

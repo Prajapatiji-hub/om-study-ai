@@ -147,14 +147,18 @@ test("quiz uniqueness preserves mathematical and programming operators", () => {
   assert.equal(isValidQuizResponse({ title: "Programming", questions: [c, cpp] }, 2), true);
 
   const compact = validQuestion();
-  compact.options = ["2+2", "5", "6", "7"];
+  compact.question = "Solve 2+2?";
   const spaced = validQuestion();
-  spaced.options = ["2 + 2", "5", "6", "7"];
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [{ ...validQuestion(), options: ["2+2", "5", "6", "7"] }] }, 1), true);
-  const duplicateOptions = validQuestion();
-  duplicateOptions.options = ["2+2", "2 + 2", "3", "4"];
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [duplicateOptions] }, 1), false);
-  assert.equal(isValidQuizResponse({ title: "Math", questions: [compact, spaced] }, 2), true);
+  spaced.question = "solve 2 + 2!";
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [compact, spaced] }, 2), false);
+
+  const programmingOptions = validQuestion();
+  programmingOptions.options = ["C", "C++", "Java", "Python"];
+  assert.equal(isValidQuizResponse({ title: "Programming", questions: [programmingOptions] }, 1), true);
+
+  const duplicateMathOptions = validQuestion();
+  duplicateMathOptions.options = ["2+2", "2 + 2", "3", "4"];
+  assert.equal(isValidQuizResponse({ title: "Math", questions: [duplicateMathOptions] }, 1), false);
 });
 
 test("Worker rejects requests with no Firebase bearer token", async () => {
