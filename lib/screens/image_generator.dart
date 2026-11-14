@@ -82,8 +82,15 @@ class _ImageGeneratorScreenState extends State<ImageGeneratorScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            if (!_service.isConfigured) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'चित्र सेवा अभी चालू नहीं है। सुरक्षित HTTPS AI Worker URL और Worker deployment पूरा होने तक अनुरोध बंद रहेगा। अभी कोई नेटवर्क अनुरोध नहीं भेजा जाएगा।',
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
             FilledButton.icon(
-              onPressed: _generating ? null : _generate,
+              onPressed: _generating || !_service.isConfigured ? null : _generate,
               icon: _generating
                   ? const SizedBox(
                       width: 18,

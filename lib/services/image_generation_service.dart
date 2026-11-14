@@ -11,9 +11,11 @@ class ImageGenerationService {
   static const String _workerUrl =
       String.fromEnvironment('AI_WORKER_URL', defaultValue: '');
 
+  bool get isConfigured => isValidImageWorkerUrl(_workerUrl);
+
   Future<Uint8List> generate(String rawPrompt) async {
     final prompt = validateImagePrompt(rawPrompt);
-    if (_workerUrl.isEmpty || !_workerUrl.startsWith('https://')) {
+    if (!isConfigured) {
       throw StateError('AI backend का Free setup अभी पूरा नहीं हुआ है।');
     }
     final user = FirebaseAuth.instance.currentUser;

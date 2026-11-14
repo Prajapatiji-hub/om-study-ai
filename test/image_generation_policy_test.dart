@@ -4,6 +4,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:om_study_ai/services/image_generation_policy.dart';
 
 void main() {
+  group('isValidImageWorkerUrl', () {
+    test('accepts HTTPS workers.dev and custom-path endpoints', () {
+      expect(isValidImageWorkerUrl('https://om-study-ai.example.workers.dev'), true);
+      expect(isValidImageWorkerUrl('https://ai.example.com/v1/worker'), true);
+    });
+
+    test('rejects missing, malformed and non-HTTPS endpoints', () {
+      for (final value in ['', '   ', 'not a URL', 'https://', 'http://ai.example.com', 'ftp://ai.example.com']) {
+        expect(isValidImageWorkerUrl(value), false, reason: value);
+      }
+    });
+
+    test('rejects embedded credentials, query strings and fragments', () {
+      for (final value in [
+        'https://user:pass@ai.example.com',
+        'https://ai.example.com?token=secret',
+        'https://ai.example.com/#fragment',
+        ' https://ai.example.com',
+        'https://ai.example.com ',
+      ]) {
+        expect(isValidImageWorkerUrl(value), false, reason: value);
+      }
+    });
+  });
+
   group('validateImagePrompt', () {
     test('trims a valid educational prompt', () {
       expect(validateImagePrompt('  Ohm law circuit diagram  '), 'Ohm law circuit diagram');
