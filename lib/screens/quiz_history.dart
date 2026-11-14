@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../services/user_repo.dart';
 import '../theme.dart';
@@ -135,7 +135,7 @@ class QuizHistoryScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: kTeal.withOpacity(0.12),
+          backgroundColor: kTeal.withValues(alpha: 0.12),
           child: Text('$percent%', style: const TextStyle(color: kTeal, fontWeight: FontWeight.bold)),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),

@@ -1,0 +1,415 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:om_study_ai/services/adaptive_study_context.dart';
+
+void main() {
+  group('isIncorrectQuizResponse', () {
+    test('accepts only two integer indexes that differ', () {
+      expect(isIncorrectQuizResponse({'selectedIndex': 0, 'correctIndex': 1}), isTrue);
+      expect(isIncorrectQuizResponse({'selectedIndex': 1, 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': null, 'correctIndex': null}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': null, 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': '0', 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': -1, 'correctIndex': 1}), isFalse);
+      expect(isIncorrectQuizResponse({'selectedIndex': 0, 'correctIndex': 4}), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 1,
+        'options': ['A', 'B'],
+      }), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 1,
+        'options': ['A', 'B', '', 'D'],
+      }), isFalse);
+      expect(isIncorrectQuizResponse({
+        'selectedIndex': 0,
+        'correctIndex': 3,
+        'options': ['A', 'B', 'C', 'D'],
+      }), isTrue);
+      expect(isIncorrectQuizResponse({}), isFalse);
+    });
+  });
+
+  group('study goal resolution', () {
+    test('prefers explicit Study Setup goals over profile fallback', () {
+      expect(
+        resolveStudyGoals(
+          profile: {'selectedGoals': ['govt']},
+          setupAnswers: {'goals': ['school', 'iti']},
+        ),
+        ['school', 'iti'],
+      );
+    });
+
+    test('restores bounded, unique profile goals for legacy accounts', () {
+      expect(
+        resolveStudyGoals(
+          profile: {'selectedGoals': ['govt', 'govt', '  ', 42, 'iti']},
+          setupAnswers: {},
+        ),
+        ['govt', 'iti'],
+      );
+    });
+  });
+
+  group('legacy AI Teacher question extraction', () {
+    test('keeps only student prompts and restores chronological order', () {
+      final questions = extractLegacyStudentQuestionsFromNewestFirst([
+        {'role': 'model', 'text': 'सबसे नया AI उत्तर'},
+        {'role': 'user', 'text': 'नया विद्यार्थी सवाल'},
+        {'role': 'model', 'text': 'पुराना AI उत्तर'},
+        {'role': 'user', 'text': 'पुराना विद्यार्थी सवाल'},
+      ]);
+
+      expect(questions, ['पुराना विद्यार्थी सवाल', 'नया विद्यार्थी सवाल']);
+    });
+
+    test('deduplicates, ignores malformed rows and bounds prompt text', () {
+      final questions = extractLegacyStudentQuestionsFromNewestFirst([
+        {'role': 'model', 'text': 'AI answer'},
+        {'role': 'user', 'text': 'x' * 300},
+        {'role': 'user', 'text': 'वही सवाल'},
+        {'role': 'user', 'text': '  वही   सवाल  '},
+        {'role': 'user', 'text': '   '},
+        {'role': 'user', 'text': 42},
+      ]);
+
+      expect(questions, hasLength(2));
+      expect(questions.first, 'वही सवाल');
+      expect(questions.last.length, 221);
+      expect(questions.last.endsWith('…'), isTrue);
+    });
+  });
+
+  group('study language resolution', () {
+    test('prefers the editable profile language and falls back to Study Setup', () {
+      expect(
+        resolveStudyLanguage(
+          profile: {'language': 'en'},
+          setupAnswers: {'language': 'hi'},
+        ),
+        'en',
+      );
+      expect(
+        resolveStudyLanguage(
+          profile: {'language': 'unsupported'},
+          setupAnswers: {'language': 'hinglish'},
+        ),
+        'hinglish',
+      );
+      expect(
+        resolveStudyLanguage(profile: {}, setupAnswers: {}),
+        isNull,
+      );
+    });
+  });
+
+  group('shared curated AI Study Memory context', () {
+    test('formats one deduplicated bounded memory for every AI feature', () {
+      final context = buildCuratedStudyMemoryContext({
+        'summary': '  कक्षा 12 की तैयारी  ',
+        'strengths': ['गणित', 'गणित', 'भौतिकी', '  ', 42],
+        'weakTopics': List.generate(10, (index) => 'विषय $index'),
+        'preferredStyle': '  आसान हिंदी और चरण-दर-चरण उदाहरण  ',
+      });
+
+      expect(context, contains('कक्षा 12 की तैयारी'));
+      expect(context, contains('मजबूत विषय'));
+      expect(context, contains('कमजोर विषय'));
+      expect(context, contains('विषय 7'));
+      expect(context, isNot(contains('विषय 8')));
+      expect(context, contains('चरण-दर-चरण'));
+      expect(RegExp('गणित').allMatches(context), hasLength(1));
+      expect(context, isNot(contains('42')));
+    });
+
+    test('caps long fields and ignores malformed memory values', () {
+      final context = buildCuratedStudyMemoryContext({
+        'summary': 'स' * 1000,
+        'strengths': ['ग' * 80, null, 42],
+        'weakTopics': 'यह सूची नहीं है',
+        'preferredStyle': 'श' * 300,
+      });
+
+      expect(context, contains('स' * 900 + '…'));
+      expect(context, isNot(contains('स' * 901)));
+      expect(context, contains('ग' * 60 + '…'));
+      expect(context, contains('श' * 240 + '…'));
+      expect(context, isNot(contains('42')));
+      expect(context.length, lessThan(1600));
+    });
+
+    test('returns an empty context when no valid curated fields exist', () {
+      expect(
+        buildCuratedStudyMemoryContext({
+          'summary': '  ',
+          'strengths': [null, 42],
+          'weakTopics': 'invalid',
+          'preferredStyle': '',
+        }),
+        isEmpty,
+      );
+    });
+  });
+
+  group('adaptive quiz study context', () {
+    test('ranks topics with repeated incorrect answers first', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {'school_class': '12', 'language': 'hi'},
+        quizAttempts: [
+          {
+            'score': 1,
+            'total': 3,
+            'responses': [
+              {'question': 'Ohm law Q1', 'topic': 'Ohm Law', 'selectedIndex': 0, 'correctIndex': 1},
+              {'question': 'Ohm law Q2', 'topic': 'Ohm Law', 'selectedIndex': 1, 'correctIndex': 2},
+              {'question': 'Math Q1', 'topic': 'Mathematics', 'selectedIndex': 0, 'correctIndex': 0},
+            ],
+          },
+        ],
+        priorTeacherQuestions: ['Current और Resistance में अंतर क्या है?'],
+      );
+
+      expect(context, contains('school_class: 12'));
+      expect(context, contains('Ohm Law (2 गलत उत्तर)'));
+      expect(context, contains('AI Teacher में विद्यार्थी के हाल के सवाल'));
+      expect(context, contains('1/3 सही'));
+    });
+
+    test('keeps the selected locale in the Worker-recognized field format', () {
+      for (final locale in ['hi', 'en', 'hinglish']) {
+        final context = buildAdaptiveQuizContext(
+          setupAnswers: {'language': locale},
+          quizAttempts: [],
+        );
+        expect(context, 'language: $locale');
+      }
+    });
+
+    test("includes the same student's editable AI Study Memory in quiz context", () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {'language': 'hi'},
+        quizAttempts: [],
+        curatedStudyMemory: {
+          'summary': 'मैं कक्षा 12 की बोर्ड परीक्षा की तैयारी कर रहा हूँ।',
+          'strengths': ['गणित', 'भौतिकी'],
+          'weakTopics': ['त्रिकोणमिति', 'ओम का नियम'],
+          'preferredStyle': 'आसान हिंदी और चरण-दर-चरण उदाहरण',
+        },
+      );
+
+      expect(context, contains('संपादित AI Study Memory'));
+      expect(context, contains('कक्षा 12'));
+      expect(context, contains('मजबूत विषय'));
+      expect(context, contains('त्रिकोणमिति'));
+      expect(context, contains('ओम का नियम'));
+      expect(context, contains('चरण-दर-चरण'));
+    });
+
+    test('bounds oversized editable memory and ignores malformed memory fields', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [],
+        curatedStudyMemory: {
+          'summary': 'स' * 5000,
+          'strengths': ['गणित', 42, 'भौतिकी'],
+          'weakTopics': 'यह सूची नहीं है',
+          'preferredStyle': 'ह' * 500,
+        },
+      );
+
+      expect(context.length, lessThanOrEqualTo(3000));
+      expect(context, contains('गणित'));
+      expect(context, isNot(contains('42')));
+    });
+
+    test('ignores old responses without topic and keeps output bounded', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'responses': [
+              {'question': 'पुराना प्रश्न', 'selectedIndex': 0, 'correctIndex': 1},
+            ],
+          },
+        ],
+        priorTeacherQuestions: List<String>.filled(30, 'विद्यार्थी का लंबा सवाल ' * 30),
+      );
+
+      expect(context, contains('पिछली गलतियाँ'));
+      expect(context.length, lessThanOrEqualTo(3000));
+    });
+
+    test('ignores malformed answer indexes when ranking weak topics', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'responses': [
+              {'question': 'Malformed', 'topic': 'Unknown', 'selectedIndex': null, 'correctIndex': null},
+              {'question': 'Valid wrong', 'topic': 'Physics', 'selectedIndex': 1, 'correctIndex': 2},
+            ],
+          },
+        ],
+      );
+
+      expect(context, contains('Physics (1 गलत उत्तर)'));
+      expect(context, isNot(contains('Unknown')));
+    });
+
+    test('ignores impossible scores, out-of-range indexes and malformed options', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'score': 4,
+            'total': 3,
+            'responses': [
+              {'question': 'Negative index', 'topic': 'Bad A', 'selectedIndex': -1, 'correctIndex': 1},
+              {'question': 'Out of range', 'topic': 'Bad B', 'selectedIndex': 0, 'correctIndex': 4},
+              {'question': 'Bad options', 'topic': 'Bad C', 'selectedIndex': 0, 'correctIndex': 1, 'options': ['A', 'B']},
+              {'question': 'Valid wrong', 'topic': 'Physics', 'selectedIndex': 0, 'correctIndex': 1, 'options': ['A', 'B', 'C', 'D']},
+            ],
+          },
+        ],
+      );
+
+      expect(context, contains('Physics (1 गलत उत्तर)'));
+      expect(context, isNot(contains('Bad A')));
+      expect(context, isNot(contains('Bad B')));
+      expect(context, isNot(contains('Bad C')));
+      expect(context, isNot(contains('4/3 सही')));
+      expect(context, contains('Valid wrong'));
+    });
+
+    test('bounds and normalizes question and topic text before using it as a signal', () {
+      final context = buildAdaptiveQuizContext(
+        setupAnswers: {},
+        quizAttempts: [
+          {
+            'score': 2.5,
+            'total': 3,
+            'responses': [
+              {
+                'question': '  ${'Long question  ' * 20}',
+                'topic': '  ${'Electrical topic ' * 8}',
+                'selectedIndex': 0,
+                'correctIndex': 1,
+              },
+            ],
+          },
+        ],
+      );
+
+      expect(context.length, lessThanOrEqualTo(3000));
+      expect(context, contains('Electrical topic'));
+      expect(context, isNot(contains('2/3 सही')));
+      expect(context, isNot(contains('Long question  Long question')));
+    });
+
+    test('returns an empty context when no learner history exists', () {
+      expect(
+        buildAdaptiveQuizContext(setupAnswers: {}, quizAttempts: []),
+        isEmpty,
+      );
+    });
+  });
+
+  group('AI Teacher recent quiz learning summary', () {
+    test('includes recent scores and ranks only explicitly incorrect topics', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'score': 1,
+          'total': 3,
+          'responses': [
+            {'question': 'Ohm law first', 'topic': 'Ohm Law', 'selectedIndex': 0, 'correctIndex': 1},
+            {'question': 'Ohm law second', 'topic': 'Ohm Law', 'selectedIndex': 1, 'correctIndex': 2},
+            {'question': 'Correct math', 'topic': 'Mathematics', 'selectedIndex': 1, 'correctIndex': 1},
+          ],
+        },
+        {
+          'score': 2,
+          'total': 3,
+          'responses': [
+            {'question': 'Math mistake', 'topic': 'Mathematics', 'selectedIndex': 0, 'correctIndex': 2},
+            {'question': 'Malformed', 'topic': 'Unknown', 'selectedIndex': '0', 'correctIndex': 1},
+          ],
+        },
+      ]);
+
+      expect(summary, contains('1/3 सही'));
+      expect(summary, contains('2/3 सही'));
+      expect(summary, contains('Ohm Law (2 गलत)'));
+      expect(summary, contains('Mathematics (1 गलत)'));
+      expect(summary.indexOf('Ohm Law'), lessThan(summary.indexOf('Mathematics')));
+      expect(summary, contains('Ohm law first'));
+      expect(summary, isNot(contains('Correct math')));
+      expect(summary, isNot(contains('Unknown')));
+    });
+
+    test('uses a legacy attempt topic when a wrong response has no topic', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'topic': 'Physics',
+          'responses': [
+            {'question': 'Legacy physics question', 'selectedIndex': 0, 'correctIndex': 1},
+          ],
+        },
+      ]);
+      expect(summary, contains('Physics (1 गलत)'));
+      expect(summary, contains('Legacy physics question'));
+    });
+
+    test('deduplicates repeated question text and keeps context bounded', () {
+      final repeated = {
+        'question': 'A very long question about a circuit ' * 20,
+        'topic': 'Electrical basics',
+        'selectedIndex': 0,
+        'correctIndex': 1,
+      };
+      final summary = buildRecentQuizLearningSummary(List.generate(5, (i) => {
+        'score': 0,
+        'total': 10,
+        'responses': List.generate(10, (_) => repeated),
+      }));
+      expect(summary.length, lessThanOrEqualTo(1200));
+      // The stored question is truncated to 140 characters, so the phrase can
+      // naturally appear more than once inside that single entry. Count list
+      // separators instead to verify the duplicate response was removed.
+      expect(summary.split(' | '), hasLength(1));
+      expect(summary, contains('Electrical basics (30 गलत)'));
+    });
+
+    test('ignores fractional or impossible scores and malformed answer indexes', () {
+      final summary = buildRecentQuizLearningSummary([
+        {
+          'score': 3.5,
+          'total': 5,
+          'responses': [
+            {'question': 'Negative', 'topic': 'Bad', 'selectedIndex': -1, 'correctIndex': 1},
+            {'question': 'Out of range', 'topic': 'Bad', 'selectedIndex': 0, 'correctIndex': 4},
+            {'question': 'Valid', 'topic': 'Physics', 'selectedIndex': 0, 'correctIndex': 1},
+          ],
+        },
+        {
+          'score': 6,
+          'total': 5,
+          'responses': [],
+        },
+      ]);
+
+      expect(summary, contains('Physics (1 गलत)'));
+      expect(summary, contains('Valid'));
+      expect(summary, isNot(contains('3/5 सही')));
+      expect(summary, isNot(contains('6/5 सही')));
+      expect(summary, isNot(contains('Bad')));
+    });
+
+    test('returns empty summary when attempts have no valid quiz history', () {
+      expect(buildRecentQuizLearningSummary([
+        {'responses': [{'selectedIndex': null, 'correctIndex': 1}]},
+        {'score': 4, 'total': 0, 'responses': []},
+      ]), isEmpty);
+    });
+  });
+}

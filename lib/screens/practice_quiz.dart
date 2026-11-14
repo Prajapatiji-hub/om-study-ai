@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/user_repo.dart';
+import '../services/ai_teacher_service.dart';
+import '../services/adaptive_study_context.dart';
 import '../theme.dart';
 import 'ai_teacher.dart';
 
@@ -9,7 +13,8 @@ class PracticeQuestion {
   final List<String> options;
   final int answer;
   final String explanation;
-  const PracticeQuestion(this.question, this.options, this.answer, this.explanation);
+  final String topic;
+  const PracticeQuestion(this.question, this.options, this.answer, this.explanation, {this.topic = ''});
 }
 
 // Starter practice questions written for this app. These are not official PYQs.
@@ -63,9 +68,122 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   bool _saved = false;
   String? _saveError;
   final List<Map<String, dynamic>> _responses = [];
+  List<PracticeQuestion> _activeQuestions = List<PracticeQuestion>.from(_questions);
+  bool _generating = false;
+  bool _isAiQuiz = false;
 
-  PracticeQuestion get _current => _questions[_index];
-  bool get _finished => _index >= _questions.length;
+  PracticeQuestion get _current => _activeQuestions[_index];
+  bool get _finished => _index >= _activeQuestions.length;
+
+  Future<String> _loadQuizStudyContext() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return '';
+    final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    Map<String, dynamic> answers = {};
+    Map<String, dynamic> curatedMemory = {};
+    final attempts = <Map<String, dynamic>>[];
+    final priorQuestions = <String>[];
+    final legacyQuestions = <String>[];
+
+    Map<String, dynamic> profile = {};
+    try {
+      profile = (await root.get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Older profiles may be unavailable; Study Setup remains a fallback.
+    }
+    try {
+      answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Missing setup data must not prevent a practice test.
+    }
+    final resolvedGoals = resolveStudyGoals(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (resolvedGoals.isNotEmpty) answers['goals'] = resolvedGoals;
+    final preferredLanguage = resolveStudyLanguage(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (preferredLanguage != null) answers['language'] = preferredLanguage;
+    try {
+      curatedMemory = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
+    } catch (_) {
+      // Editable memory is optional until the consolidated production Rules are published.
+    }
+    try {
+      final snapshot = await root.collection('quiz_attempts')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+      attempts.addAll(snapshot.docs.map((doc) => doc.data()));
+    } catch (_) {
+      // Quiz history is optional for older accounts.
+    }
+
+    // Include a bounded sample of the student's own prior AI Teacher questions.
+    try {
+      final chats = await root.collection('ai_chats')
+          .orderBy('updatedAt', descending: true)
+          .limit(3)
+          .get();
+      for (final chat in chats.docs) {
+        final messages = await chat.reference.collection('messages')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get();
+        for (final doc in messages.docs.reversed) {
+          final data = doc.data();
+          if (data['role'] == 'user' && data['text'] is String) {
+            final clean = (data['text'] as String).trim().replaceAll(RegExp(r'\s+'), ' ');
+            if (clean.isNotEmpty) priorQuestions.add(clean);
+          }
+        }
+        if (priorQuestions.length >= 6) break;
+      }
+    } catch (_) {
+      // Chat history is optional; continue with setup and quiz records.
+    }
+    try {
+      final legacy = await root.collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(8)
+          .get();
+      legacyQuestions.addAll(extractLegacyStudentQuestionsFromNewestFirst(
+        legacy.docs.map((doc) => doc.data()).toList(),
+      ));
+    } catch (_) {
+      // Legacy history may be absent or use an older query index.
+    }
+
+    return buildAdaptiveQuizContext(
+      setupAnswers: answers,
+      quizAttempts: attempts,
+      curatedStudyMemory: curatedMemory,
+      priorTeacherQuestions: priorQuestions,
+      legacyTeacherQuestions: legacyQuestions,
+    );
+  }
+
+  Future<void> _generateQuiz() async {
+    final topicController = TextEditingController();
+    var count = 5;
+    final request = await showDialog<Map<String, dynamic>>(context: context, builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('AI से नया टेस्ट बनाएँ'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: topicController, maxLength: 120, decoration: const InputDecoration(labelText: 'विषय / टॉपिक', hintText: 'जैसे: Ohm का नियम')), const SizedBox(height: 8), DropdownButtonFormField<int>(initialValue: count, decoration: const InputDecoration(labelText: 'प्रश्नों की संख्या'), items: [3, 5, 10, 15].map((n) => DropdownMenuItem(value: n, child: Text('$n प्रश्न'))).toList(), onChanged: (v) { if (v != null) setDialogState(() => count = v); })]), actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('रद्द करें')), FilledButton(onPressed: () => Navigator.pop(dialogContext, {'topic': topicController.text.trim(), 'count': count}), child: const Text('बनाएँ'))])));
+    if (request == null) { topicController.dispose(); return; }
+    final topic = request['topic'] as String;
+    final requestedCount = request['count'] as int;
+    topicController.dispose();
+    if (!mounted) return;
+    if (topic.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पहले विषय लिखें।'))); return; }
+    setState(() => _generating = true);
+    try {
+      final result = await AiTeacherService().generateQuiz(topic: topic, count: requestedCount, studyMemory: await _loadQuizStudyContext());
+      final generated = (result['questions'] as List).map((raw) { final item = Map<String, dynamic>.from(raw as Map); return PracticeQuestion(item['question'] as String, List<String>.from(item['options'] as List), item['answerIndex'] as int, item['explanation'] as String, topic: item['topic'] as String? ?? topic); }).toList();
+      if (!mounted) return;
+      setState(() { _activeQuestions = generated; _index = 0; _selected = null; _score = 0; _answered = false; _saving = false; _saved = false; _saveError = null; _responses.clear(); _isAiQuiz = true; });
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI टेस्ट नहीं बन पाया: $e'))); }
+    finally { if (mounted) setState(() => _generating = false); }
+  }
 
   void _checkAnswer() {
     if (_selected == null || _answered) return;
@@ -77,6 +195,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         'selectedIndex': _selected!,
         'correctIndex': _current.answer,
         'explanation': _current.explanation,
+        'topic': _current.topic,
       });
       if (_selected == _current.answer) _score++;
     });
@@ -84,8 +203,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
 
   void _next() {
     if (!_answered) return;
-    if (_index == _questions.length - 1) {
-      setState(() => _index = _questions.length);
+    if (_index == _activeQuestions.length - 1) {
+      setState(() => _index = _activeQuestions.length);
       _saveAttempt();
     } else {
       setState(() {
@@ -104,9 +223,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     });
     try {
       await widget.repo.saveQuizAttempt(
-        quizId: 'starter_basics_01',
+        quizId: _isAiQuiz ? 'ai_generated_${DateTime.now().millisecondsSinceEpoch}' : 'starter_basics_01',
         score: _score,
-        total: _questions.length,
+        total: _activeQuestions.length,
         responses: List<Map<String, dynamic>>.from(_responses),
       );
       if (mounted) setState(() => _saved = true);
@@ -120,6 +239,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   void _restart() {
     setState(() {
       _index = 0;
+      _activeQuestions = List<PracticeQuestion>.from(_questions);
+      _isAiQuiz = false;
       _selected = null;
       _score = 0;
       _answered = false;
@@ -140,26 +261,18 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'शुरुआती अभ्यास सेट • 5 प्रश्न\nये अभ्यास के लिए बनाए गए नमूना प्रश्न हैं, आधिकारिक PYQ नहीं।',
-                  style: TextStyle(fontSize: 15),
-                ),
-              ),
-            ),
+            Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_isAiQuiz ? 'AI-generated अभ्यास • आधिकारिक PYQ नहीं' : 'शुरुआती अभ्यास सेट • नमूना प्रश्न, आधिकारिक PYQ नहीं', style: const TextStyle(fontSize: 15)), const SizedBox(height: 10), OutlinedButton.icon(onPressed: _generating ? null : _generateQuiz, icon: _generating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome), label: Text(_generating ? 'AI प्रश्न बना रहा है…' : 'AI से विषयवार टेस्ट बनाएँ'))]))),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('प्रश्न ${_index + 1} / ${_questions.length}',
+                Text('प्रश्न ${_index + 1} / ${_activeQuestions.length}',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text('सही: $_score'),
               ],
             ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: (_index + 1) / _questions.length),
+            LinearProgressIndicator(value: (_index + 1) / _activeQuestions.length),
             const SizedBox(height: 24),
             Text(q.question,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
@@ -249,7 +362,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             FilledButton(
               onPressed: _answered ? _next : (_selected == null ? null : _checkAnswer),
               child: Text(_answered
-                  ? (_index == _questions.length - 1 ? 'परिणाम देखें' : 'अगला प्रश्न')
+                  ? (_index == _activeQuestions.length - 1 ? 'परिणाम देखें' : 'अगला प्रश्न')
                   : 'उत्तर जाँचें'),
             ),
           ],
@@ -259,7 +372,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   }
 
   Widget _resultPage() {
-    final percent = (_score * 100 / _questions.length).round();
+    final percent = (_score * 100 / _activeQuestions.length).round();
     return Scaffold(
       appBar: AppBar(title: const Text('टेस्ट का परिणाम')),
       body: Center(
@@ -272,7 +385,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
             const Text('आपका परिणाम', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('$_score / ${_questions.length} सही • $percent%',
+            Text('$_score / ${_activeQuestions.length} सही • $percent%',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 22)),
             const SizedBox(height: 18),
             if (_saving) const Center(child: CircularProgressIndicator()),
