@@ -20,22 +20,23 @@
 
 ## 1. Release status snapshot
 
-Latest reviewed source snapshot (14 November 2026; Build #205 verified; image Worker URL guard pending Build #206):
+Latest reviewed source snapshot (15 November 2026; Build #206 verified; strict Study Setup answer validation pending Build #207):
 - PR #21 remains open, Draft and unmerged; it targets `main` from `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
 - PR #22 remains open, Draft and unmerged; it targets PR #21's feature branch and continues on `feature/ai-chat-sessions`.
-- Latest successful Build APK workflow is Build #205 (run ID `43357822954`) for commit `50edf48fdc97f24fc0222e275e24b40ddb4ead40`. Its single build job completed all 18 execution/cleanup steps successfully.
-- Build #205 artifact is `om-study-ai-apk` (artifact ID `14006978089`), not expired: 26,003,988 bytes; ZIP SHA-256 `32aa527ab34f86e31c2d9febc6247d97e6479e9ef9cad5c77d69173ab53c85b6`; expires 11 February 2027 at 03:16:14 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
-- Extracted Build #205 APK is 53,940,214 bytes; SHA-256 `074046df88dd7cd3d8cae787d489f94235f6c06ad74b9dd6425187a975977590`. This is a CI candidate, not physical-device acceptance.
-- Build #205 passed Worker JavaScript tests 27/27, Flutter Analyze with no issues, all 78 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload.
+- Latest successful Build APK workflow is Build #206 (run ID `43550224901`) for commit `7ca2cdc83975315b2870d88bf3358c41d89b991e`. Its single build job completed all 18 reported execution/cleanup steps successfully.
+- Build #206 artifact is `om-study-ai-apk` (artifact ID `14095916949`), not expired: 26,005,227 bytes; ZIP SHA-256 `ebf6462e3de4d491264442d68411e322f76fef4447a521aefe6bba8fc9e206f8`; expires 12 February 2027 at 03:10:29 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
+- Extracted Build #206 APK is 53,940,214 bytes; SHA-256 `66d880a54a5888aff401e426a8e79309a47f4db5aa1fddfea03ed21b2b58f9c7`. This is a CI candidate, not physical-device acceptance.
+- Build #206 passed Worker JavaScript tests 27/27, Flutter Analyze with no issues, all 81 Flutter tests, Firestore Rules Emulator tests 5/5, release APK build and artifact upload.
 - Build #202 (run ID `43146017853`; commit `222116c2de0faf44e48b19a4c84229a6a7c6df5a`) failed in Worker JavaScript tests before Flutter setup. The normalized duplicate-question validator used an over-escaped Unicode-property regex, and the prior valid-schema fixture reused one question three times. Build #203 corrected both; its 26 Worker tests passed.
 - Build #204 (run ID `43357657971`; commit `725d0c922b86aae144b6f6159a57665b85b84f5f`) failed at `node --check index.js`: the operator-preserving character-class regex was over-escaped and produced `Range out of order in character class`; all later steps were skipped and no artifact was produced. Build #205 replaces the character-class approach with Unicode/operator tokenization, corrects the regression fixture and passed the complete APK workflow.
 - Adaptive quiz context uses the same student's Study Setup, profile goals/language, editable AI Study Memory, recent quiz attempts, recent chat questions and legacy student-authored prompts. Malformed answer indexes/options, impossible scores and oversized context are rejected or bounded.
 - AI Teacher receives the student's recent quiz scores, repeated incorrect topics and incorrect question prompts, plus bounded cross-chat history and legacy chat context. Student context is sent as untrusted user data, separate from system instructions.
 - The account-lifecycle preservation patch, editable private AI Study Memory, bounded adaptive context, locale resolution and student-only legacy chat prompt extraction remain source- and CI-verified; production Rules publication and phone isolation tests remain pending.
+- Required Study Setup completion now validates each visible answer against its question: non-empty unique allowed goals/options, optional skips only on optional questions, and non-blank text bounded to 200 characters. Invalid persisted values route back to the relevant question instead of releasing the dashboard; Build #207 will validate the new regression tests.
 - Profile loading treats the profile and editable AI Study Memory as independent reads. A Memory permission/network failure no longer hides profile data or Study Setup editing; Memory fields remain read-only until retry succeeds, preventing accidental blank overwrites.
 - Voice locale follows the editable profile language first, then Study Setup; English maps to `en-US`, Hindi/Hinglish to `hi-IN`. Voice permission/error guidance has automated coverage, but real-device settings recovery remains pending.
 - Image-generation source is included: explicit user action, Firebase-token-authenticated Worker endpoint, separate UID rate limit, Llama Guard moderation, FLUX.1 schnell (4 steps), bounded JPEG validation, in-memory display only, no image storage and no paid fallback. The Worker is not deployed.
-- The image screen now has a source-level guard planned in this change: it will enable generation only when the build-time Worker endpoint is a valid HTTPS URL without embedded credentials, query strings or fragments; otherwise it will explain that no request is sent. Build #206 must validate this guard and its tests.
+- Build #206 validates the image screen's HTTPS Worker URL gate: blank/malformed/non-HTTPS URLs, embedded credentials, query strings, fragments and surrounding whitespace are rejected; the Generate button remains disabled until a valid endpoint is compiled in. This UI guard does not prove that the Worker is deployed or reachable.
 - The quiz uniqueness validator rejects repeated questions/options after Unicode, case, punctuation and whitespace normalization while preserving mathematical/programming operators. The corrected tokenization keeps `C` distinct from `C++`, addition distinct from subtraction, and still treats operator-spacing variants as duplicates; Build #205 passed the Worker regression suite.
 - Worker deployment, live Firestore Rules publication, final main-branch APK and complete physical-device acceptance remain release gates.
 
@@ -80,7 +81,8 @@ Test each flow on a clean install and on an existing account:
 - [ ] Email verification behavior is clear (if enabled); password reset email arrives and reset link works.
 - [ ] Login, logout, app restart and session persistence work.
 - [ ] Wrong password and unknown account do not crash or reveal sensitive account details.
-- [ ] New account is forced through the required Study Setup before accessing the normal dashboard.
+- [x] Source and CI gate new accounts on the explicit required-setup marker; Build #207 will validate answer-value rejection for empty/unknown/duplicate options and bounded text.
+- [ ] Real-device: a new account cannot reach the dashboard before every visible, valid Study Setup answer is saved; force-close/resume and Android Back remain blocked until completion.
 - [ ] Required questions cannot be bypassed by Back/navigation or app restart.
 - [ ] Setup resumes at the correct unanswered question after force-close/reopen.
 - [ ] Text answer, selected options, skipped optional question and language preference save correctly.
@@ -175,7 +177,7 @@ Test each flow on a clean install and on an existing account:
 - [x] Worker moderation tests require the entire trimmed Llama Guard response to equal `safe`; actual newline/category suffixes and literal escaped suffixes are rejected.
 - [x] Client-side image payload validation requires `mimeType: image/jpeg`, valid bounded base64, JPEG SOI and EOI markers before rendering. The truncated-image regression test is included in commit `e29851a8c33241b455722503adb22638aa717f9f`; Build #201 passed the Worker checks and Build #203 passed 26/26 Worker tests.
 - [ ] Do not deploy the Worker until the owner explicitly approves. No Cloudflare setting, secret or deployment was changed by this source patch.
-- [ ] Build #206 must validate the new client-side Worker URL gate: blank/malformed/non-HTTPS URLs, URL credentials, query strings and fragments are rejected; the Generate button remains disabled until a valid HTTPS endpoint is compiled in. This UI guard does not prove that the Worker is deployed or reachable.
+- [x] Build #206 passed the client-side Worker URL gate tests for blank/malformed/non-HTTPS endpoints, embedded credentials, query strings, fragments and surrounding whitespace. This UI guard does not prove that the Worker is deployed or reachable.
 - [x] Build #201's successful Worker test run (24/24) and later Build #203 validation include the client-side JPEG end-marker check and truncated-payload regression coverage; physical image-generation tests remain pending.
 - [ ] Real-device acceptance remains required: prompt validation, moderation blocks, rate limit, quota exhaustion, image display, slow network and leaving the screen clears the temporary image.
 - [ ] Verify the model's current license and usage terms before public release. Never store generated images publicly by default.

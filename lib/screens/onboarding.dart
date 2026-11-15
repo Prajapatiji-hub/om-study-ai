@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../services/user_repo.dart';
-import '../services/study_setup_state.dart';
 import '../theme.dart';
 
 const kSkipped = '__skipped';
@@ -73,9 +72,60 @@ final List<Q> kQuestions = [
 List<Q> visibleQuestions(Map<String, dynamic> a) =>
     kQuestions.where((q) => q.show(a)).toList();
 
+/// Validates the saved value against the actual visible question definition.
+/// A key's mere presence is not enough to release a new student's dashboard.
+bool isValidStudySetupAnswer(Q question, dynamic value) {
+  if (question.optional && value == kSkipped) return true;
+
+  switch (question.type) {
+    case 'single':
+      return value is String && question.options.containsKey(value);
+    case 'multi':
+      if (value is! List || value.isEmpty) return false;
+      final selected = <String>{};
+      for (final item in value) {
+        if (item is! String ||
+            !question.options.containsKey(item) ||
+            !selected.add(item)) {
+          return false;
+        }
+      }
+      return selected.isNotEmpty;
+    case 'text':
+      if (value is! String) return false;
+      final clean = value.trim();
+      return clean.isNotEmpty && clean.length <= 200;
+    default:
+      return false;
+  }
+}
+
+/// Returns the first visible question with a missing or invalid saved answer.
+int firstUnansweredVisibleStudySetupQuestionIndex(
+  Map<String, dynamic> answers,
+) {
+  final questions = visibleQuestions(answers);
+  return questions.indexWhere(
+    (question) => !isValidStudySetupAnswer(question, answers[question.id]),
+  );
+}
+
+/// Required onboarding is complete only when every currently visible answer
+/// is valid, including selected goal branches and bounded text fields.
+bool hasCompletedVisibleStudySetup(Map<String, dynamic> answers) {
+  final questions = visibleQuestions(answers);
+  return questions.isNotEmpty &&
+      questions.every(
+        (question) => isValidStudySetupAnswer(question, answers[question.id]),
+      );
+}
+
 ({int done, int total}) onboardingProgress(Map<String, dynamic> a) {
   final v = visibleQuestions(a);
-  return (done: v.where((q) => a.containsKey(q.id)).length, total: v.length);
+  return (
+    done: v.where((q) => isValidStudySetupAnswer(q, a[q.id])).length,
+    total: v.length,
+  );
 }
 
 class OnboardingScreen extends StatefulWidget {
@@ -110,9 +160,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _load() async {
     try {
       _answers = Map<String, dynamic>.from(await widget.repo.loadAnswers());
-      final ids = visibleQuestions(_answers).map((q) => q.id).toList();
-      _idx = widget.edit ? 0 : firstUnansweredStudySetupQuestionIndex(ids, _answers);
-      if (_idx < 0) _idx = ids.length;
+      final questions = visibleQuestions(_answers);
+      _idx = widget.edit
+          ? 0
+          : firstUnansweredVisibleStudySetupQuestionIndex(_answers);
+      if (_idx < 0) _idx = questions.length;
       _prime();
     } catch (_) {
       _error = 'जवाब लोड नहीं हो सके। इंटरनेट जाँचकर दोबारा खोलें।';
@@ -127,8 +179,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_idx < v.length) {
       final q = v[_idx];
       final cur = _answers[q.id];
-      if (q.type == 'multi' && cur is List) _multi = List<String>.from(cur);
-      if (q.type == 'text' && cur is String && cur != kSkipped) _text.text = cur;
+      if (q.type == 'multi' && cur is List) {
+        _multi = cur
+            .whereType<String>()
+            .where(q.options.containsKey)
+            .toSet()
+            .toList();
+      }
+      if (q.type == 'text' && cur is String && cur != kSkipped) {
+        _text.text = cur.length > 200 ? cur.substring(0, 200) : cur;
+      }
     }
   }
 
@@ -174,9 +234,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finishSetup() async {
-    final visibleIds = visibleQuestions(_answers).map((q) => q.id).toList();
-    if (!hasCompletedRequiredStudySetup(visibleIds, _answers)) {
-      final missing = firstUnansweredStudySetupQuestionIndex(visibleIds, _answers);
+    if (!hasCompletedVisibleStudySetup(_answers)) {
+      final missing = firstUnansweredVisibleStudySetupQuestionIndex(_answers);
       setState(() {
         _idx = missing < 0 ? 0 : missing;
         _prime();

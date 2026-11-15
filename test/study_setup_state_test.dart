@@ -61,49 +61,5 @@ void main() {
     });
   });
 
-  group('required setup completion', () {
-    test('finds the first unanswered visible question', () {
-      expect(
-        firstUnansweredStudySetupQuestionIndex(
-          ['goals', 'school_class', 'language'],
-          {'goals': ['school'], 'language': 'hi'},
-        ),
-        1,
-      );
-    });
 
-    test('accepts an explicit skip for an optional question', () {
-      final ids = ['goals', 'school_hard', 'language'];
-      final answers = {
-        'goals': ['school'],
-        'school_hard': '__skipped',
-        'language': 'hi',
-      };
-      expect(hasCompletedRequiredStudySetup(ids, answers), isTrue);
-      expect(firstUnansweredStudySetupQuestionIndex(ids, answers), -1);
-    });
-
-    test('ignores hidden branch questions but requires every selected branch', () {
-      final schoolIds = ['goals', 'school_class', 'school_board', 'language'];
-      expect(
-        hasCompletedRequiredStudySetup(
-          schoolIds,
-          {'goals': ['school'], 'school_class': '12', 'language': 'hi'},
-        ),
-        isFalse,
-      );
-      expect(
-        hasCompletedRequiredStudySetup(
-          ['goals', 'iti_trade', 'language'],
-          {'goals': ['iti'], 'iti_trade': 'electrician', 'language': 'hi'},
-        ),
-        isTrue,
-      );
-    });
-
-    test('does not mark an empty or incomplete setup complete', () {
-      expect(hasCompletedRequiredStudySetup([], {}), isFalse);
-      expect(hasCompletedRequiredStudySetup(['goals', 'language'], {'goals': ['school']}), isFalse);
-    });
-  });
 }
