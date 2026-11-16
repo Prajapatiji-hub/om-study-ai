@@ -1,19 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-/// Accepts only a complete HTTPS endpoint without embedded credentials or query data.
-/// The Worker URL is public routing configuration, never an authentication secret.
-bool isValidImageWorkerUrl(String value) {
-  if (value.isEmpty || value != value.trim()) return false;
-  final uri = Uri.tryParse(value);
-  return uri != null &&
-      uri.isAbsolute &&
-      uri.scheme.toLowerCase() == 'https' &&
-      uri.host.isNotEmpty &&
-      uri.userInfo.isEmpty &&
-      !uri.hasQuery &&
-      !uri.hasFragment;
-}
+import 'worker_endpoint_policy.dart';
+
+/// Image generation shares the same strict endpoint policy as AI Teacher.
+bool isValidImageWorkerUrl(String value) => isValidWorkerEndpointUrl(value);
 
 /// Validates a short prompt before it is sent to the authenticated image endpoint.
 String validateImagePrompt(String value) {

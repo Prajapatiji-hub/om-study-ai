@@ -4,10 +4,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 import 'ai_service_error.dart';
+import 'worker_endpoint_policy.dart';
 
 class AiTeacherService {
   static const String _workerUrl =
       String.fromEnvironment('AI_WORKER_URL', defaultValue: '');
+
+  Uri get _workerUri {
+    if (!isValidWorkerEndpointUrl(_workerUrl)) {
+      throw StateError('AI backend का Free setup अभी पूरा नहीं हुआ है।');
+    }
+    return Uri.parse(_workerUrl);
+  }
 
   Future<String> ask({
     required String message,
@@ -21,9 +29,7 @@ class AiTeacherService {
     String topic = '',
     int quizCount = 5,
   }) async {
-    if (_workerUrl.isEmpty || !_workerUrl.startsWith('https://')) {
-      throw StateError('AI backend का Free setup अभी पूरा नहीं हुआ है।');
-    }
+    final workerUri = _workerUri;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -36,7 +42,7 @@ class AiTeacherService {
 
     final response = await http
         .post(
-          Uri.parse(_workerUrl),
+          workerUri,
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
@@ -82,9 +88,7 @@ class AiTeacherService {
     required int count,
     String studyMemory = '',
   }) async {
-    if (_workerUrl.isEmpty || !_workerUrl.startsWith('https://')) {
-      throw StateError('AI backend का Free setup अभी पूरा नहीं हुआ है।');
-    }
+    final workerUri = _workerUri;
     if (topic.trim().isEmpty || topic.trim().length > 120 || count < 3 || count > 15) {
       throw ArgumentError('विषय लिखें और 3 से 15 प्रश्न चुनें।');
     }
@@ -93,7 +97,7 @@ class AiTeacherService {
     final token = await user.getIdToken();
     if (token == null || token.isEmpty) throw StateError('लॉगिन की पुष्टि नहीं हुई।');
     final response = await http.post(
-      Uri.parse(_workerUrl),
+      workerUri,
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
       body: jsonEncode({
         'mode': 'generate_quiz',
