@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 let env;
 
@@ -104,6 +104,70 @@ test('legacy AI Teacher history allows valid owner creates but no edits or delet
   await assertFails(setDoc(privateDoc(dbFor('bob'), 'alice', 'ai_teacher_messages', 'm2'), {
     role: 'user', text: 'cross account', createdAt: serverTimestamp(),
   }));
+});
+
+
+test('onboarding, progress, plans, notes and quiz attempts are owner-only for reads, lists and writes', async () => {
+  const owner = dbFor('alice');
+  const otherStudent = dbFor('bob');
+  const anonymous = env.unauthenticatedContext().firestore();
+  const privateCollections = [
+    {
+      collection: 'onboarding',
+      id: 'answers',
+      data: { language: 'hi', _setupRequired: false },
+    },
+    {
+      collection: 'syllabus_progress',
+      id: 'math',
+      data: { algebra: true },
+    },
+    {
+      collection: 'study_plan',
+      id: 'current',
+      data: { dailyMinutes: 120, tasks: [] },
+    },
+    {
+      collection: 'notes',
+      id: 'note-1',
+      data: {
+        title: 'व्यक्तिगत नोट',
+        body: 'यह केवल Alice का निजी नोट है।',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+    },
+    {
+      collection: 'quiz_attempts',
+      id: 'attempt-1',
+      data: {
+        quizId: 'emulator-test',
+        score: 1,
+        total: 1,
+        responses: [],
+        createdAt: serverTimestamp(),
+      },
+    },
+  ];
+
+  for (const item of privateCollections) {
+    const ownerPath = privateDoc(owner, 'alice', item.collection, item.id);
+    await assertSucceeds(setDoc(ownerPath, item.data));
+    await assertSucceeds(getDoc(ownerPath));
+
+    const otherPath = privateDoc(otherStudent, 'alice', item.collection, item.id);
+    await assertFails(getDoc(otherPath));
+    await assertFails(getDocs(collection(otherStudent, `users/alice/${item.collection}`)));
+    await assertFails(setDoc(
+      privateDoc(otherStudent, 'alice', item.collection, `${item.id}-intrusion`),
+      item.data,
+    ));
+
+    await assertFails(getDoc(
+      privateDoc(anonymous, 'alice', item.collection, item.id),
+    ));
+    await assertFails(getDocs(collection(anonymous, `users/alice/${item.collection}`)));
+  }
 });
 
 test('catalog is signed-in read-only and unknown collections remain denied', async () => {

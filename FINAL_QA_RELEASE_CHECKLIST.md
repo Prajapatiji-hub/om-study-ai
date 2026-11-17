@@ -3,27 +3,24 @@
 ## Firestore Rules automated coverage
 - Run `npm --prefix rules-tests install --no-audit --no-fund`.
 - Run `npm --prefix rules-tests test`; this starts the local Firestore Emulator and executes allow/deny tests against the checked-in `firestore.rules`.
-- Emulator tests cover owner isolation, unauthenticated denial, bounded Study Memory writes, chat/message ownership and immutability, legacy history write restrictions, read-only catalog access and catch-all denial.
+- Emulator tests cover owner isolation and unauthenticated denial for onboarding, syllabus progress, study plans, notes and quiz attempts (document reads, collection queries and attempted cross-owner writes), plus bounded Study Memory writes, chat/message ownership and immutability, legacy history write restrictions, read-only catalog access and catch-all denial.
 - These tests validate the local Rules file only. They do not publish Rules to Firebase and do not prove production Rules are deployed.
 - Keep final manual Rules review and explicit owner approval before any production publication.
 
 # OM STUDY AI — Final QA, Security & Release Checklist
 
-## Latest automation audit — 16 November 2026
+## Latest automation audit — 17 November 2026
 
 - PR #21 remains Open/Draft/Unmerged and targets `main`; its head branch is `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
-- PR #22 remains Open/Draft/Unmerged and targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` at `df7d5ea382bc4d9c083c030ccc04b4fe5c92a0f9`.
-- Latest branch commit and latest Build APK run are `df7d5ea382bc4d9c083c030ccc04b4fe5c92a0f9`, Build #207, run ID `43669092297`; workflow completed successfully on 15 November 2026.
-- Build #207 artifact is `om-study-ai-apk` (artifact ID `14143671689`), not expired; ZIP size 26,012,216 bytes; ZIP SHA-256 `f76537ea441be13666a937d05c56c9bcac1a3d0c3e5f88b09e63e660aea49658`; expiry 13 February 2027 02:43:19 UTC. Downloaded ZIP digest matches GitHub's artifact digest.
-- Extracted Build #207 APK is 54,005,750 bytes; SHA-256 `158b552b939a3aeed5311eedd91d9d214986dacbcd216ec11add32febb319fe2`. This is a CI candidate, not physical-device acceptance.
-- Build #207 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27/27; Flutter Analyze: no issues; Flutter tests: 82 passed; Firestore Rules Emulator: 5/5 passed; release APK and artifact upload succeeded.
-- Build #207 validates the Study Setup answer-value gate: visible required answers must be valid, optional skips are limited to optional questions, invalid stored answers route back to the question, and progress counts only valid answers. Real-device onboarding/resume/Back testing remains unchecked.
-- Editable AI Study Memory is stored at `users/{uid}/ai_study_memory/profile`, owner-scoped in the checked-in Rules, bounded and validated in the app and Rules Emulator, editable/clearable without deleting chats or quiz history. Profile and Memory load independently. Production Rules publication and two-account phone isolation remain pending.
-- AI Teacher uses the same student's editable Memory, Study Setup, bounded recent quiz learning summary, recent chat context and read-only legacy student prompts. Adaptive quiz uses the same curated Memory, weak-topic signals and bounded prior-question context. Worker treats student context as untrusted data separate from system instructions.
-- Voice locale/lifecycle/error handling and image moderation/payload/endpoint guards have source and CI coverage; live Worker deployment and real-device voice/image acceptance remain pending. Do not infer Worker deployment from the dry-run CI check.
-- Next source change centralizes strict HTTPS Worker endpoint validation for both AI Teacher and Image Generation; Build #208 will validate the shared policy. No Firebase Rules, Cloudflare Worker, secrets, billing or repository visibility changes were made.
-
-
+- PR #22 remains Open/Draft/Unmerged and targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` at `8c332a4d51ce71e09af328796af28e2075cd59f3`. The feature-branch head matches the latest Build APK run commit.
+- Latest Build APK workflow is Build #208, run ID `43797611101`, for commit `8c332a4d51ce71e09af328796af28e2075cd59f3`; it completed successfully on 16 November 2026.
+- Build #208 artifact is `om-study-ai-apk` (artifact ID `14194434397`), not expired; ZIP size 26,013,339 bytes; ZIP SHA-256 `583ef695c6e5ff0483c9e06f5796f626a6556c1c05738fe18682b8dc23bdb6a6`; expiry 14 February 2027 03:20:38 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
+- Extracted Build #208 APK is 54,005,750 bytes; SHA-256 `e7d50d0e83c4ef393d77ec24025faeadf52154061b09561ff539fe145b0f27d3`. It is a CI candidate, not physical-device acceptance.
+- Build #208 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27/27; Flutter Analyze: no issues; Flutter tests: 85 passed; Firestore Rules Emulator tests: 5/5 passed; release APK build and artifact upload succeeded.
+- Build #208 validates the shared strict HTTPS Worker endpoint policy used by AI Teacher and Image Generation. The workflow's Wrangler command is a dry-run validation only; no production Worker deployment occurred.
+- Editable per-student AI Study Memory, Study Setup gating, bounded AI Teacher context, adaptive quiz context and legacy chat preservation remain source/CI verified. Production Firestore Rules publication, live Worker validation and two-account phone isolation remain pending.
+- This commit adds Firestore Emulator regression coverage for owner-only document reads, collection queries and attempted cross-owner writes across onboarding, syllabus progress, study plans, notes and quiz attempts. Build #209 will validate the expanded suite.
+- No Firebase Rules, Cloudflare Worker, secrets, billing settings or repository visibility changes were made.
 **Purpose:** This is the release gate for the complete app. A green APK build is not proof that the app works on a real Android phone. Mark an item PASS only after recording the date, build/commit, test account, device, and evidence. Use NOT TESTED, BLOCKED, or FAIL honestly.
 
 **Release policy**
