@@ -42,8 +42,12 @@ test('private profile is readable only by its owner', async () => {
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'users/alice')));
 });
 
-test('AI Study Memory accepts bounded owner writes and rejects cross-account or malformed writes', async () => {
+test('AI Study Memory is owner-only, editable, bounded and clearable without deletion', async () => {
+  const owner = dbFor('alice');
+  const otherStudent = dbFor('bob');
+  const anonymous = env.unauthenticatedContext().firestore();
   const memory = (db) => doc(db, 'users/alice/ai_study_memory/profile');
+  const memoryCollection = (db) => collection(db, 'users/alice/ai_study_memory');
   const valid = {
     summary: 'गणित में सुधार',
     strengths: ['गणित'],
@@ -51,20 +55,38 @@ test('AI Study Memory accepts bounded owner writes and rejects cross-account or 
     preferredStyle: 'आसान हिंदी',
     updatedAt: serverTimestamp(),
   };
-  await assertSucceeds(setDoc(memory(dbFor('alice')), valid));
-  await assertSucceeds(getDoc(memory(dbFor('alice'))));
-  await assertFails(getDoc(memory(dbFor('bob'))));
-  await assertFails(setDoc(memory(dbFor('bob')), valid));
-  await assertFails(setDoc(memory(dbFor('alice')), { ...valid, extra: true }));
-  await assertFails(setDoc(memory(dbFor('alice')), {
+
+  await assertSucceeds(setDoc(memory(owner), valid));
+  await assertSucceeds(getDoc(memory(owner)));
+  await assertFails(getDoc(memory(otherStudent)));
+  await assertFails(getDoc(memory(anonymous)));
+  await assertFails(getDocs(memoryCollection(otherStudent)));
+  await assertFails(getDocs(memoryCollection(anonymous)));
+  await assertFails(setDoc(memory(otherStudent), valid));
+  await assertFails(updateDoc(memory(otherStudent), {
+    summary: 'दूसरे विद्यार्थी का बदलाव',
+    updatedAt: serverTimestamp(),
+  }));
+
+  // The owner can edit the complete document through a partial update.
+  await assertSucceeds(updateDoc(memory(owner), {
+    summary: 'अब भौतिकी भी पढ़ रहा हूँ',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(getDoc(memory(owner)));
+
+  await assertFails(setDoc(memory(owner), { ...valid, extra: true }));
+  await assertFails(setDoc(memory(owner), {
     ...valid, strengths: Array.from({ length: 13 }, (_, i) => 'topic' + i),
   }));
-  await assertFails(setDoc(memory(dbFor('alice')), {
+  await assertFails(setDoc(memory(owner), {
     ...valid, summary: 'x'.repeat(2001),
   }));
-  // The profile editor clears curated memory by replacing every field with an
-  // explicit empty value; this must remain allowed without deleting the doc.
-  await assertSucceeds(setDoc(memory(dbFor('alice')), {
+
+  // Clearing uses explicit empty values; the document is not deleted, so the
+  // owner can safely restore memory later without changing the Rules schema.
+  await assertFails(deleteDoc(memory(owner)));
+  await assertSucceeds(setDoc(memory(owner), {
     summary: '', strengths: [], weakTopics: [], preferredStyle: '',
     updatedAt: serverTimestamp(),
   }));
@@ -83,6 +105,9 @@ test('AI chat and messages are owner-only, bounded, and immutable after creation
   }));
   await assertFails(getDoc(doc(dbFor('bob'), 'users/alice/ai_chats/chat-1')));
   await assertFails(getDoc(doc(dbFor('bob'), 'users/alice/ai_chats/chat-1/messages/message-1')));
+  await assertFails(getDocs(collection(dbFor('bob'), 'users/alice/ai_chats')));
+  await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(), 'users/alice/ai_chats')));
+  await assertFails(getDocs(collection(dbFor('bob'), 'users/alice/ai_chats/chat-1/messages')));
   await assertFails(setDoc(doc(dbFor('bob'), 'users/alice/ai_chats/chat-1/messages/foreign'), {
     role: 'user', text: 'intrusion', createdAt: serverTimestamp(),
   }));
@@ -101,6 +126,9 @@ test('legacy AI Teacher history allows valid owner creates but no edits or delet
   }));
   await assertFails(updateDoc(legacy, { text: 'changed' }));
   await assertFails(deleteDoc(legacy));
+  await assertSucceeds(getDocs(collection(owner, 'users/alice/ai_teacher_messages')));
+  await assertFails(getDocs(collection(dbFor('bob'), 'users/alice/ai_teacher_messages')));
+  await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(), 'users/alice/ai_teacher_messages')));
   await assertFails(setDoc(privateDoc(dbFor('bob'), 'alice', 'ai_teacher_messages', 'm2'), {
     role: 'user', text: 'cross account', createdAt: serverTimestamp(),
   }));

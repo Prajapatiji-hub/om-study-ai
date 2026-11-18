@@ -9,18 +9,21 @@
 
 # OM STUDY AI — Final QA, Security & Release Checklist
 
-## Latest automation audit — 17 November 2026
+## Latest automation audit — 18 November 2026
 
 - PR #21 remains Open/Draft/Unmerged and targets `main`; its head branch is `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
-- PR #22 remains Open/Draft/Unmerged and targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` at `8c332a4d51ce71e09af328796af28e2075cd59f3`. The feature-branch head matches the latest Build APK run commit.
-- Latest Build APK workflow is Build #208, run ID `43797611101`, for commit `8c332a4d51ce71e09af328796af28e2075cd59f3`; it completed successfully on 16 November 2026.
-- Build #208 artifact is `om-study-ai-apk` (artifact ID `14194434397`), not expired; ZIP size 26,013,339 bytes; ZIP SHA-256 `583ef695c6e5ff0483c9e06f5796f626a6556c1c05738fe18682b8dc23bdb6a6`; expiry 14 February 2027 03:20:38 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
-- Extracted Build #208 APK is 54,005,750 bytes; SHA-256 `e7d50d0e83c4ef393d77ec24025faeadf52154061b09561ff539fe145b0f27d3`. It is a CI candidate, not physical-device acceptance.
-- Build #208 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27/27; Flutter Analyze: no issues; Flutter tests: 85 passed; Firestore Rules Emulator tests: 5/5 passed; release APK build and artifact upload succeeded.
-- Build #208 validates the shared strict HTTPS Worker endpoint policy used by AI Teacher and Image Generation. The workflow's Wrangler command is a dry-run validation only; no production Worker deployment occurred.
-- Editable per-student AI Study Memory, Study Setup gating, bounded AI Teacher context, adaptive quiz context and legacy chat preservation remain source/CI verified. Production Firestore Rules publication, live Worker validation and two-account phone isolation remain pending.
-- This commit adds Firestore Emulator regression coverage for owner-only document reads, collection queries and attempted cross-owner writes across onboarding, syllabus progress, study plans, notes and quiz attempts. Build #209 will validate the expanded suite.
+- PR #22 remains Open/Draft/Unmerged and targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` at `a3ee641b52793d219c4de48e4125b1ffb27fc390`. The feature-branch head matches Build #209.
+- Latest Build APK workflow is Build #209, run ID `44005306464`, for commit `a3ee641b52793d219c4de48e4125b1ffb27fc390`; it completed successfully on 17 November 2026.
+- Build #209 artifact is `om-study-ai-apk` (artifact ID `14294531852`), not expired; ZIP size 26,013,700 bytes; ZIP SHA-256 `610fecf4cf2cbf455a3978b06597f0e514bece52ef4b7e1ed6bb4bc604b5bed1`; expiry 15 February 2027 02:45:30 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
+- Extracted Build #209 APK is 54,005,750 bytes; SHA-256 `3d962e1890737c09d1e87db679512527eae78f23a22c53279dd961684e7558c7`. It is a CI candidate, not physical-device acceptance.
+- Build #209 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27/27; Flutter Analyze: no issues; Flutter tests: 85 passed; Firestore Rules Emulator tests: 5/5 passed; release APK build and artifact upload succeeded.
+- Build #209's Emulator suite covers owner-only document reads, collection queries and cross-owner writes for onboarding, syllabus progress, study plans, notes and quiz attempts. It also verifies bounded Study Memory writes, chat/message ownership and immutability, legacy history restrictions, read-only catalog access and catch-all denial.
+- This follow-up adds explicit cross-account and anonymous collection-query denial tests for AI Study Memory, AI chat sessions/messages and legacy AI Teacher history. It also verifies owner-only memory edits, rejects owner deletion (the UI clears by saving bounded empty fields), and keeps the memory document reusable. Build #210 will validate these additional cases.
+- The AI Study Memory remains a fixed `users/{uid}/ai_study_memory/profile` document with bounded summary/topics/style fields and server timestamps. The app reads and writes only beneath the authenticated user's UID; production Rules publication remains pending.
+- Adaptive quiz context uses the same student's Study Setup, profile goals/language, editable AI Study Memory, recent quiz attempts, recent chat questions and legacy student-authored prompts. Malformed answer indexes/options, impossible scores and oversized context are rejected or bounded.
+- AI Teacher receives the student's recent quiz scores, repeated weak topics and incorrect question prompts, plus bounded cross-chat history and legacy chat context. Student context is sent as untrusted user data, separate from system instructions.
 - No Firebase Rules, Cloudflare Worker, secrets, billing settings or repository visibility changes were made.
+
 **Purpose:** This is the release gate for the complete app. A green APK build is not proof that the app works on a real Android phone. Mark an item PASS only after recording the date, build/commit, test account, device, and evidence. Use NOT TESTED, BLOCKED, or FAIL honestly.
 
 **Release policy**
