@@ -323,3 +323,17 @@ Before calling it FINAL, attach:
 | Tester | |
 
 For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps performed, expected result, actual result, evidence link/screenshot, and issue/commit reference. Never mark a section PASS based only on a source-code review or CI build.
+
+
+## Automation checkpoint — 19 November 2026
+
+- PR #21 is Open/Draft/Unmerged, targets `main`, and remains at head `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
+- PR #22 is Open/Draft/Unmerged, targets PR #21's feature branch, and remains at head `00dada936c1c23c6d195c21116a54824405a379b` before this follow-up.
+- Current feature branch: `feature/ai-chat-sessions`; pre-change head: `00dada936c1c23c6d195c21116a54824405a379b`.
+- Latest Build APK workflow: Build #210, run ID `44225271950`, commit `00dada936c1c23c6d195c21116a54824405a379b`; conclusion SUCCESS on 18 November 2026.
+- Build #210 artifact: `om-study-ai-apk`, artifact ID `14393071105`, ZIP size 26,013,701 bytes, expiry 16 February 2027 02:42:57 UTC, GitHub SHA-256 `ddea5f78c679ecbd850e0037b25fb01b034478a93f6047be08305493592ddead`. The downloaded ZIP SHA-256 matches the GitHub digest.
+- Extracted Build #210 APK: 54,005,750 bytes; SHA-256 `43d5a487b00eb99d4fd0eba00fb32c800903b6cdd39c465d4f8a4d78c9aed254`. ZIP integrity passed and the file was identified as an Android APK.
+- Build #210 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 85 passed; Firestore Rules Emulator: 6 passed, 0 failed; release APK build and artifact upload succeeded.
+- Source review found that the editable AI Study Memory controls already existed inside ProfileScreen, but the dashboard's separate “मेरी AI मेमोरी” tile was still marked Coming Soon. This follow-up exposes that tile as ready and routes it directly to ProfileScreen. A regression test checks the module is available. Build #211 will validate the change.
+- Worker dry-run validation in CI is not a production deployment. No Cloudflare Worker was deployed and no Firebase Rules were published.
+- Physical-device acceptance, live Firestore Rules publication, Worker deployment approval, and final main-branch release remain outstanding. CI success is not device acceptance.

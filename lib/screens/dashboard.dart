@@ -36,7 +36,8 @@ const kModules = [
   Module('प्रैक्टिस टेस्ट', Icons.quiz, ready: true),
   Module('मेरी प्रगति', Icons.show_chart, ready: true),
   Module('मेरी गलतियाँ', Icons.fact_check, ready: true),
-  Module('मेरी AI मेमोरी', Icons.psychology),
+  // The editable memory editor is hosted in ProfileScreen and is ready to use.
+  Module('मेरी AI मेमोरी', Icons.psychology, ready: true),
   Module('पढ़ाई के रिमाइंडर', Icons.alarm),
   Module('मेरी प्रोफ़ाइल', Icons.person, ready: true),
   Module('सेटिंग्स', Icons.settings, ready: true),
@@ -53,6 +54,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final Future<void> _init = widget.repo.ensureProfile();
 
   void _open(Module m) {
+    if (m.title == 'मेरी AI मेमोरी') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(repo: widget.repo)));
+      return;
+    }
     if (m.title == 'AI चित्र बनाएँ') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ImageGeneratorScreen()));
       return;
