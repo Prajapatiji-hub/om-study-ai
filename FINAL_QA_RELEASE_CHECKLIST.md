@@ -418,3 +418,13 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - The answers document cannot be deleted to bypass the gate. Legacy accounts without the marker can continue editing existing setup data, and already-completed accounts can update their answers without being forced through first-time setup again.
 - Emulator regression tests cover direct false-marker creation, premature marker clearing, deletion, successful completion, and legacy-account edit compatibility.
 - This is the single consolidated Rules candidate in the repository. It has not been published to Firebase. Build #219 must validate the Rules Emulator suite before the final owner-side publication review.
+
+
+## Build #219 verified artifact and consolidated Rules validation — 20 November 2026
+
+- Build #219 run ID 44667323137 completed successfully for commit 1745c1c25403f027c8a22ec2b298477577714aa0.
+- Artifact: om-study-ai-apk, artifact ID 14598861321, size 26,009,379 bytes, expiry 18 February 2027 03:22:54 UTC; ZIP SHA-256 1822669bbb40e3cb6610ae22000a444c5e84757729cb784d81e3f595e04a663d.
+- Extracted APK: 54,005,750 bytes; SHA-256 9a225e5c31ff7233ade5ee82050e2c6baca3ceb1650b648fe3f151ac958ff562. The downloaded ZIP digest matches GitHub's artifact digest.
+- All 19 reported job/cleanup steps passed. Worker JavaScript: 27 passed; Flutter Analyze: no issues; Flutter tests: 96 passed; Firestore Rules Emulator: 8 passed; Android NDK, APK compilation and artifact upload succeeded.
+- The consolidated Firestore Rules candidate passed the Emulator suite. It has not been published to Firebase. A follow-up test-only checkpoint adds explicit government-exam and ITI branch completion cases and confirms that already-completed accounts can continue editing setup without being re-gated; this will be Build #220.
+- No Firebase Rules publication or Cloudflare Worker deployment occurred.

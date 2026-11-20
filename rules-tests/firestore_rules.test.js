@@ -238,6 +238,87 @@ test('new signup cannot clear its setup gate before all visible required answers
   }));
 });
 
+test('government and ITI branches require their own visible answers before completion', async () => {
+  const common = {
+    language: 'hi',
+    hours: '2',
+    time: 'morning',
+    start: 'today',
+    lesson_len: 'short',
+    tests: 'yes',
+    revision: 'weekly',
+    internet: 'always',
+  };
+  const scenarios = [
+    {
+      uid: 'govt-student',
+      goal: 'govt',
+      branchAnswers: {
+        govt_exam: 'ssc',
+        govt_level: 'beginner',
+        govt_syllabus: 'yes',
+      },
+    },
+    {
+      uid: 'iti-student',
+      goal: 'iti',
+      branchAnswers: {
+        iti_trade: 'electrician',
+        iti_level: 'none',
+        iti_mode: 'theory',
+      },
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const owner = dbFor(scenario.uid);
+    const answers = doc(owner, 'users/' + scenario.uid + '/onboarding/answers');
+    await assertSucceeds(setDoc(answers, {
+      _setupRequired: true,
+      _setupCreatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(setDoc(answers, {
+      ...common,
+      goals: [scenario.goal],
+    }, { merge: true }));
+    await assertFails(updateDoc(answers, {
+      _setupRequired: false,
+      _setupCompletedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(setDoc(answers, scenario.branchAnswers, { merge: true }));
+    await assertSucceeds(updateDoc(answers, {
+      _setupRequired: false,
+      _setupCompletedAt: serverTimestamp(),
+    }));
+  }
+});
+
+test('already-completed accounts can edit setup without a new-user gate', async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/completed-student/onboarding/answers'), {
+      _setupRequired: false,
+      goals: ['school'],
+      school_class: '12',
+      school_board: 'cbse',
+      school_stream: 'pcm',
+      school_level: 'beginner',
+      language: 'hi',
+      hours: '2',
+      time: 'morning',
+      start: 'today',
+      lesson_len: 'short',
+      tests: 'yes',
+      revision: 'weekly',
+      internet: 'always',
+    });
+  });
+  const owner = dbFor('completed-student');
+  await assertSucceeds(updateDoc(
+    doc(owner, 'users/completed-student/onboarding/answers'),
+    { goals: ['govt'] },
+  ));
+});
+
 test('legacy setup documents without a marker remain editable', async () => {
   const owner = dbFor('legacy-student');
   const answers = doc(owner, 'users/legacy-student/onboarding/answers');
