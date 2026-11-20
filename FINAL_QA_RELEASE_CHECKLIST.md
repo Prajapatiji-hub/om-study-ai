@@ -398,5 +398,14 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Build #215 failed because the adaptive-quiz recent-question test fixture did not match newest-first page ordering. The whitespace normalization regex was also double-escaped. Both were corrected in commit 145c85551aa37752a08dc211a609cf298be59c23; Build #216 validated the fix.
 - A follow-up audit found that Worker language selection searched every line of the combined student context. A user-authored memory or chat line containing language: en could override the student's validated profile/setup language. The app now prepends a validated language: hi|en|hinglish header before all editable memory, quiz and chat context. The Worker reads only that exact first-line header and defaults to Hindi when it is absent or invalid. Dart and Worker regression tests cover malicious or accidental later language: strings.
 - AI Study Memory, chat history, quiz history and setup values remain untrusted student data, separated from system instructions. The change affects only response-language selection; it does not modify student records.
-- The new language-precedence regression change is queued for Build #217. Worker validation remains CI dry-run/test only; no Cloudflare Worker deployment occurred.
+- The language-precedence regression change was committed in e6bd85477a5da7838592271974611e90a3cec62a. Build #217 caught three Dart analyzer infos caused by redundant interpolation braces; the source has been corrected and Build #218 will validate it. Worker validation remains CI dry-run/test only; no Cloudflare Worker deployment occurred.
 - No Firebase Rules were published, no Firebase/Cloudflare settings or secrets were changed, no paid service or billing was enabled, and repository visibility remains public.
+
+
+## Build #217 failure analysis — 20 November 2026
+
+- Build #217: run ID 44666298069, commit e6bd85477a5da7838592271974611e90a3cec62a; conclusion FAILURE.
+- Checkout, Firebase configuration, Worker JavaScript validation, Java setup, Flutter setup, Android platform generation, Firebase configuration source and dependency installation all passed.
+- Flutter Analyze stopped the workflow with three info-level lint findings in lib/services/adaptive_study_context.dart:178, :180 and :356 (unnecessary_brace_in_string_interps). Flutter tests, Firestore Emulator tests, Android NDK, APK compilation and artifact upload were skipped; no APK artifact was produced.
+- The actual cause was redundant Dart interpolation braces around simple identifiers (key and language). These were changed to $key and $language; braces remain only around method-call expressions where they are required. Build #218 must verify Analyze, all tests, Emulator rules, APK and artifact upload.
+- No production Firebase Rules or Cloudflare Worker deployment occurred.

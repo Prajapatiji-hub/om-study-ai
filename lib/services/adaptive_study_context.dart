@@ -175,9 +175,9 @@ String buildAdaptiveQuizContext({
   ]) {
     final value = setupAnswers[key];
     if (value is String && value.trim().isNotEmpty && value != '__skipped') {
-      parts.add('विद्यार्थी की पढ़ाई सेटअप — ${key}: ${value.trim()}');
+      parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.trim()}');
     } else if (value is List && value.isNotEmpty) {
-      parts.add('विद्यार्थी की पढ़ाई सेटअप — ${key}: ${value.join(', ')}');
+      parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.join(', ')}');
     }
   }
 
@@ -353,7 +353,7 @@ String joinStudyContextParts(
   final language = preferredLanguage?.trim().toLowerCase();
   final contextParts = <String>[
     if (language != null && supportedLanguages.contains(language))
-      'language: ${language}',
+      'language: $language',
     ...parts.where((part) => part.trim().isNotEmpty),
   ];
   final context = contextParts.join('\n');
