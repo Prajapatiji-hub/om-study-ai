@@ -355,3 +355,31 @@ String joinStudyContextParts(
       ? context.substring(0, maxCharacters)
       : context;
 }
+
+/// Extracts only student-authored questions from multiple newest-first chat
+/// pages. Pages stay in chat-recency order; each page is reversed to restore
+/// chronology. The output is deduplicated and bounded for adaptive quiz context.
+List<String> extractRecentTeacherQuestionsFromNewestFirstPages(
+  List<List<Map<String, dynamic>>> newestFirstPages, {
+  int maxQuestions = 6,
+  int maxCharacters = 220,
+}) {
+  if (maxQuestions <= 0 || maxCharacters <= 0) return <String>[];
+  final seen = <String>{};
+  final questions = <String>[];
+  for (final page in newestFirstPages) {
+    for (final message in page.reversed) {
+      if (message['role'] != 'user') continue;
+      final rawText = message['text'];
+      if (rawText is! String) continue;
+      final clean = rawText.trim().replaceAll(RegExp(r'\\s+'), ' ');
+      if (clean.isEmpty || !seen.add(clean)) continue;
+      questions.add(clean.length > maxCharacters
+          ? '${clean.substring(0, maxCharacters)}…'
+          : clean);
+      if (questions.length >= maxQuestions) break;
+    }
+    if (questions.length >= maxQuestions) break;
+  }
+  return questions;
+}

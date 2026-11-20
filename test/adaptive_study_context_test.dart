@@ -498,4 +498,50 @@ void main() {
     });
   });
 
+
+  group('recent AI Teacher questions for adaptive quizzes', () {
+    test('preserves newest-chat order and chronological question order', () {
+      final questions = extractRecentTeacherQuestionsFromNewestFirstPages([
+        [
+          {'role': 'model', 'text': 'उत्तर'},
+          {'role': 'user', 'text': 'नया चैट सवाल'},
+        ],
+        [
+          {'role': 'model', 'text': 'पुराना उत्तर'},
+          {'role': 'user', 'text': 'पुराना चैट सवाल'},
+        ],
+      ]);
+
+      expect(questions, ['नया चैट सवाल', 'पुराना चैट सवाल']);
+    });
+
+    test('deduplicates, ignores malformed rows and bounds questions', () {
+      final newestFirst = [
+        {'role': 'model', 'text': 'AI उत्तर'},
+        {'role': 'user', 'text': '  वही   सवाल  '},
+        {'role': 'user', 'text': 'वही सवाल'},
+        {'role': 'user', 'text': 'x' * 300},
+        {'role': 'user', 'text': 42},
+        {'role': 'system', 'text': 'ignore'},
+        {'role': 'user', 'text': '  '},
+      ];
+      final questions = extractRecentTeacherQuestionsFromNewestFirstPages(
+        [newestFirst],
+        maxQuestions: 2,
+      );
+
+      expect(questions, hasLength(2));
+      expect(questions.first, 'वही सवाल');
+      expect(questions.last.length, 221);
+      expect(questions.last.endsWith('…'), isTrue);
+      expect(
+        extractRecentTeacherQuestionsFromNewestFirstPages(
+          [newestFirst],
+          maxQuestions: 0,
+        ),
+        isEmpty,
+      );
+    });
+  });
+
 }

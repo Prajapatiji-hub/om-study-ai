@@ -369,3 +369,12 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Steps through Flutter Analyze passed. Flutter tests reported 91 passed and 2 failed. Firestore Emulator, Android NDK, APK build and artifact upload were skipped after the test failure; Build #213 produced no APK artifact.
 - Both failures were in the newly added regression fixtures, not the production helpers: the test source encoded a literal backslash-n sequence while expecting a real newline/whitespace collapse. The production code now uses a whitespace regex and actual newline separators. The fixtures have been corrected to encode Dart newline escapes once; the next workflow must confirm all 93 tests pass.
 - No Firestore Rules or Cloudflare Worker deployment was performed.
+
+## Build #214 verification and adaptive quiz follow-up — 20 November 2026
+
+- Build #214: run ID `44664044441`, commit `2a562df9b87620ee3dd0f01c8de7a010b59a98f5`, conclusion SUCCESS on 20 November 2026.
+- Artifact: `om-study-ai-apk`, artifact ID `14597761238`, ZIP size 26,011,834 bytes, expiry 18 February 2027 02:54:23 UTC, GitHub SHA-256 `f920e16ebf1c4bd106682b77ac1f1f1d9607d795211d1f84f5e41caee44da4f1`; downloaded ZIP checksum matched.
+- Extracted APK: 54,005,750 bytes; SHA-256 `7bc0175aa07b5c6efdd6cc7e0cc9d16cf1585f258a34d22fcf41d2a1b651cf4b`. ZIP integrity passed and `app-release.apk` was identified as an Android package.
+- Build #214 completed all 18 reported job/cleanup steps. Worker JavaScript: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 93 passed; Firestore Rules Emulator: 6 passed, 0 failed; release APK build and artifact upload succeeded.
+- Build #214 validates the corrected AI Teacher learning-context formatting and concurrent Profile/Memory loading. The two Build #213 failures were corrected test fixtures; no production Firestore Rules or Worker deployment occurred.
+- Next audit found the adaptive quiz screen still loaded profile, setup, curated memory, quiz attempts, chat index and legacy history serially, then fetched recent chat messages serially. The follow-up starts independent owner-scoped reads together, fetches chat message pages concurrently with per-chat failure isolation, and adds bounded/deduplicated recent-question extraction tests. The next Build APK workflow must validate these changes.

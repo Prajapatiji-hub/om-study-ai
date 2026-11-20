@@ -79,23 +79,62 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    Map<String, dynamic> answers = {};
-    Map<String, dynamic> curatedMemory = {};
-    final attempts = <Map<String, dynamic>>[];
-    final priorQuestions = <String>[];
-    final legacyQuestions = <String>[];
 
-    Map<String, dynamic> profile = {};
-    try {
-      profile = (await root.get()).data() ?? <String, dynamic>{};
-    } catch (_) {
-      // Older profiles may be unavailable; Study Setup remains a fallback.
-    }
-    try {
-      answers = (await root.collection('onboarding').doc('answers').get()).data() ?? <String, dynamic>{};
-    } catch (_) {
-      // Missing setup data must not prevent a practice test.
-    }
+    // Start the independent, owner-scoped learning reads together. Optional
+    // missing history must not block the setup, curated memory or quiz records.
+    final Future<Map<String, dynamic>> profileFuture = root.get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<Map<String, dynamic>> answersFuture = root
+        .collection('onboarding')
+        .doc('answers')
+        .get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<Map<String, dynamic>> memoryFuture = root
+        .collection('ai_study_memory')
+        .doc('profile')
+        .get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<List<Map<String, dynamic>>> attemptsFuture = root
+        .collection('quiz_attempts')
+        .orderBy('createdAt', descending: true)
+        .limit(5)
+        .get()
+        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
+        .catchError((_) => <Map<String, dynamic>>[]);
+    final Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> chatsFuture =
+        root.collection('ai_chats')
+            .orderBy('updatedAt', descending: true)
+            .limit(3)
+            .get()
+            .then((snapshot) => snapshot.docs)
+            .catchError((_) => <QueryDocumentSnapshot<Map<String, dynamic>>>[]);
+    final Future<List<Map<String, dynamic>>> legacyFuture = root
+        .collection('ai_teacher_messages')
+        .orderBy('createdAt', descending: true)
+        .limit(8)
+        .get()
+        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
+        .catchError((_) => <Map<String, dynamic>>[]);
+
+    final results = await Future.wait<Object?>([
+      profileFuture,
+      answersFuture,
+      memoryFuture,
+      attemptsFuture,
+      chatsFuture,
+      legacyFuture,
+    ]);
+    final profile = results[0] as Map<String, dynamic>;
+    final answers = results[1] as Map<String, dynamic>;
+    final curatedMemory = results[2] as Map<String, dynamic>;
+    final attempts = results[3] as List<Map<String, dynamic>>;
+    final chats =
+        results[4] as List<QueryDocumentSnapshot<Map<String, dynamic>>>;
+    final legacy = results[5] as List<Map<String, dynamic>>;
+
     final resolvedGoals = resolveStudyGoals(
       profile: profile,
       setupAnswers: answers,
@@ -106,55 +145,27 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       setupAnswers: answers,
     );
     if (preferredLanguage != null) answers['language'] = preferredLanguage;
-    try {
-      curatedMemory = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
-    } catch (_) {
-      // Editable memory is optional until the consolidated production Rules are published.
-    }
-    try {
-      final snapshot = await root.collection('quiz_attempts')
-          .orderBy('createdAt', descending: true)
-          .limit(5)
-          .get();
-      attempts.addAll(snapshot.docs.map((doc) => doc.data()));
-    } catch (_) {
-      // Quiz history is optional for older accounts.
-    }
 
-    // Include a bounded sample of the student's own prior AI Teacher questions.
-    try {
-      final chats = await root.collection('ai_chats')
-          .orderBy('updatedAt', descending: true)
-          .limit(3)
-          .get();
-      for (final chat in chats.docs) {
-        final messages = await chat.reference.collection('messages')
-            .orderBy('createdAt', descending: true)
-            .limit(4)
-            .get();
-        for (final doc in messages.docs.reversed) {
-          final data = doc.data();
-          if (data['role'] == 'user' && data['text'] is String) {
-            final clean = (data['text'] as String).trim().replaceAll(RegExp(r'\s+'), ' ');
-            if (clean.isNotEmpty) priorQuestions.add(clean);
-          }
+    // Read each chat page concurrently and isolate failures per chat. A single
+    // unavailable conversation must not discard other useful study signals.
+    final chatMessagePages = await Future.wait(
+      chats.take(3).map((chat) async {
+        try {
+          final messages = await chat.reference
+              .collection('messages')
+              .orderBy('createdAt', descending: true)
+              .limit(4)
+              .get();
+          return messages.docs.map((doc) => doc.data()).toList();
+        } catch (_) {
+          return <Map<String, dynamic>>[];
         }
-        if (priorQuestions.length >= 6) break;
-      }
-    } catch (_) {
-      // Chat history is optional; continue with setup and quiz records.
-    }
-    try {
-      final legacy = await root.collection('ai_teacher_messages')
-          .orderBy('createdAt', descending: true)
-          .limit(8)
-          .get();
-      legacyQuestions.addAll(extractLegacyStudentQuestionsFromNewestFirst(
-        legacy.docs.map((doc) => doc.data()).toList(),
-      ));
-    } catch (_) {
-      // Legacy history may be absent or use an older query index.
-    }
+      }),
+    );
+    final priorQuestions =
+        extractRecentTeacherQuestionsFromNewestFirstPages(chatMessagePages);
+    final legacyQuestions =
+        extractLegacyStudentQuestionsFromNewestFirst(legacy);
 
     return buildAdaptiveQuizContext(
       setupAnswers: answers,
@@ -164,7 +175,6 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       legacyTeacherQuestions: legacyQuestions,
     );
   }
-
   Future<void> _generateQuiz() async {
     final topicController = TextEditingController();
     var count = 5;
