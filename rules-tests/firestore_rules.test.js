@@ -143,7 +143,8 @@ test('onboarding, progress, plans, notes and quiz attempts are owner-only for re
     {
       collection: 'onboarding',
       id: 'answers',
-      data: { language: 'hi', _setupRequired: false },
+      // Legacy accounts have no new-signup marker; keep their data editable.
+      data: { language: 'hi' },
     },
     {
       collection: 'syllabus_progress',
@@ -196,6 +197,53 @@ test('onboarding, progress, plans, notes and quiz attempts are owner-only for re
     ));
     await assertFails(getDocs(collection(anonymous, `users/alice/${item.collection}`)));
   }
+});
+
+test('new signup cannot clear its setup gate before all visible required answers are valid', async () => {
+  const owner = dbFor('new-student');
+  const answers = doc(owner, 'users/new-student/onboarding/answers');
+
+  await assertFails(setDoc(answers, {
+    _setupRequired: false,
+    _setupCompletedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(setDoc(answers, {
+    _setupRequired: true,
+    _setupCreatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(answers, {
+    _setupRequired: false,
+    _setupCompletedAt: serverTimestamp(),
+  }));
+  await assertFails(deleteDoc(answers));
+
+  await assertSucceeds(setDoc(answers, {
+    goals: ['school'],
+    school_class: '12',
+    school_board: 'cbse',
+    school_stream: 'pcm',
+    school_level: 'beginner',
+    language: 'hi',
+    hours: '2',
+    time: 'morning',
+    start: 'today',
+    lesson_len: 'short',
+    tests: 'yes',
+    revision: 'weekly',
+    internet: 'always',
+  }, { merge: true }));
+  await assertSucceeds(updateDoc(answers, {
+    _setupRequired: false,
+    _setupCompletedAt: serverTimestamp(),
+  }));
+});
+
+test('legacy setup documents without a marker remain editable', async () => {
+  const owner = dbFor('legacy-student');
+  const answers = doc(owner, 'users/legacy-student/onboarding/answers');
+  await assertSucceeds(setDoc(answers, { language: 'hi' }));
+  await assertSucceeds(setDoc(answers, { goals: ['school'] }, { merge: true }));
+  await assertSucceeds(setDoc(answers, { school_class: '12' }, { merge: true }));
 });
 
 test('catalog is signed-in read-only and unknown collections remain denied', async () => {

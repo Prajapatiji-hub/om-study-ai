@@ -409,3 +409,12 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Flutter Analyze stopped the workflow with three info-level lint findings in lib/services/adaptive_study_context.dart:178, :180 and :356 (unnecessary_brace_in_string_interps). Flutter tests, Firestore Emulator tests, Android NDK, APK compilation and artifact upload were skipped; no APK artifact was produced.
 - The actual cause was redundant Dart interpolation braces around simple identifiers (key and language). These were changed to $key and $language; braces remain only around method-call expressions where they are required. Build #218 must verify Analyze, all tests, Emulator rules, APK and artifact upload.
 - No production Firebase Rules or Cloudflare Worker deployment occurred.
+
+
+## Consolidated Firestore Rules hardening — 20 November 2026
+
+- All app-owned paths are now identified in the checked-in Rules file: profile, onboarding answers, syllabus progress, study plan, notes, quiz attempts, AI chat sessions/messages, editable AI Study Memory, legacy AI Teacher history and read-only syllabus catalog.
+- The final consolidated Rules update additionally prevents a new signup from clearing the onboarding marker until the saved document contains every currently visible required Study Setup answer. Conditional school, government-exam and ITI questions are checked only when their goal is selected; optional text fields may be skipped. The completion timestamp must be a server timestamp.
+- The answers document cannot be deleted to bypass the gate. Legacy accounts without the marker can continue editing existing setup data, and already-completed accounts can update their answers without being forced through first-time setup again.
+- Emulator regression tests cover direct false-marker creation, premature marker clearing, deletion, successful completion, and legacy-account edit compatibility.
+- This is the single consolidated Rules candidate in the repository. It has not been published to Firebase. Build #219 must validate the Rules Emulator suite before the final owner-side publication review.

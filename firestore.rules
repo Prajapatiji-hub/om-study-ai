@@ -20,13 +20,72 @@ service cloud.firestore {
         && (!('selectedGoals' in d)||d.selectedGoals is list);
     }
 
+    // Match the currently visible, required Study Setup questions before a
+    // new-account gate can be cleared. Optional text questions may be skipped.
+    function validRequiredStudySetup(d) {
+      return d.keys().hasAll([
+          'goals','language','hours','time','start','lesson_len','tests','revision','internet'
+        ])
+        && d.goals is list && d.goals.size()>0 && d.goals.size()<=3
+        && d.goals.hasOnly(['school','govt','iti'])
+        && d.language in ['hi','en','hinglish']
+        && d.hours in ['1','2','3','4plus']
+        && d.time in ['morning','afternoon','evening','night']
+        && d.start in ['today','tomorrow','monday']
+        && d.lesson_len in ['short','detailed']
+        && d.tests in ['yes','no']
+        && d.revision in ['weekly','biweekly','monthly']
+        && d.internet in ['always','sometimes','mostly_offline']
+        && (!('school' in d.goals) ||
+          (d.school_class in ['10','11','12']
+            && d.school_board in ['jac','cbse','bseb','other']
+            && d.school_stream in ['pcm','pcb','commerce','arts','none']
+            && d.school_level in ['beginner','medium','good']
+            && (!('school_hard' in d) || d.school_hard == '__skipped'
+              || (d.school_hard is string && d.school_hard.size()>0 && d.school_hard.size()<=200))))
+        && (!('govt' in d.goals) ||
+          (d.govt_exam in ['rrb_alp','rrb_tech','ssc','jharkhand','other']
+            && d.govt_level in ['beginner','medium','good']
+            && d.govt_syllabus in ['yes','partly','no']
+            && (!('govt_year' in d) || d.govt_year == '__skipped'
+              || (d.govt_year is string && d.govt_year.size()>0 && d.govt_year.size()<=200))))
+        && (!('iti' in d.goals) ||
+          (d.iti_trade in ['electrician','asst_electrician','solar','other']
+            && d.iti_level in ['none','some','good']
+            && d.iti_mode in ['theory','practical','both']));
+    }
+
+    // Owners may save answers while the marker stays true. Clearing the marker
+    // is allowed only once, with all visible required answers and a server time.
+    function validSetupMarkerTransition() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return !changed.hasAny(['_setupRequired'])
+        || ((!('_setupRequired' in before) || before._setupRequired == true)
+          && ('_setupRequired' in after)
+          && after._setupRequired == false
+          && after._setupCompletedAt == request.time
+          && validRequiredStudySetup(after));
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)&&validNewProfile(uid);
       allow update: if isOwner(uid)&&validLegacyProfileUpdate(uid);
       allow delete: if isOwner(uid);
 
-      match /onboarding/{docId} { allow read,write: if isOwner(uid); }
+      match /onboarding/{docId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && (docId != 'answers'
+          || !('_setupRequired' in request.resource.data)
+          || (request.resource.data._setupRequired == true
+            && request.resource.data._setupCreatedAt == request.time));
+        allow update: if isOwner(uid)
+          && (docId != 'answers' || validSetupMarkerTransition());
+        // Deleting the answers document must never remove a new-account gate.
+        allow delete: if isOwner(uid) && docId != 'answers';
+      }
       match /syllabus_progress/{trackId} { allow read,write: if isOwner(uid); }
       match /study_plan/{planId} { allow read,write: if isOwner(uid); }
       match /notes/{noteId} { allow read,write: if isOwner(uid); }
