@@ -378,3 +378,10 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Build #214 completed all 18 reported job/cleanup steps. Worker JavaScript: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 93 passed; Firestore Rules Emulator: 6 passed, 0 failed; release APK build and artifact upload succeeded.
 - Build #214 validates the corrected AI Teacher learning-context formatting and concurrent Profile/Memory loading. The two Build #213 failures were corrected test fixtures; no production Firestore Rules or Worker deployment occurred.
 - Next audit found the adaptive quiz screen still loaded profile, setup, curated memory, quiz attempts, chat index and legacy history serially, then fetched recent chat messages serially. The follow-up starts independent owner-scoped reads together, fetches chat message pages concurrently with per-chat failure isolation, and adds bounded/deduplicated recent-question extraction tests. The next Build APK workflow must validate these changes.
+
+## Build #215 failure analysis — 20 November 2026
+
+- Build #215: run ID `44664894126`, commit `bf4abdcd75b009353090e02ce98bebf4014f3842`; conclusion FAILURE.
+- Worker JavaScript and Flutter Analyze passed. Flutter tests reported 94 passed and 1 failed; Firestore Emulator, Android NDK, APK build and artifact upload were skipped. No APK artifact was produced.
+- The failure was isolated to the new adaptive-quiz prior-question test: the newest-first fixture placed the long question at the oldest position, but the helper correctly reverses each page to chronological order. The helper also had a double-escaped whitespace regex, preventing normalization/deduplication of repeated spacing. The regex is corrected and the fixture is reordered so the expected chronological sample is unambiguous. Build #216 must verify the fix.
+- No production Firestore Rules or Cloudflare Worker deployment occurred.

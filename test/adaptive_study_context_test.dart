@@ -518,9 +518,9 @@ void main() {
     test('deduplicates, ignores malformed rows and bounds questions', () {
       final newestFirst = [
         {'role': 'model', 'text': 'AI उत्तर'},
-        {'role': 'user', 'text': '  वही   सवाल  '},
-        {'role': 'user', 'text': 'वही सवाल'},
         {'role': 'user', 'text': 'x' * 300},
+        {'role': 'user', 'text': 'वही सवाल'},
+        {'role': 'user', 'text': '  वही   सवाल  '},
         {'role': 'user', 'text': 42},
         {'role': 'system', 'text': 'ignore'},
         {'role': 'user', 'text': '  '},
