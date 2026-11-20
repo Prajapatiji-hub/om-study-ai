@@ -337,3 +337,18 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Source review found that the editable AI Study Memory controls already existed inside ProfileScreen, but the dashboard's separate “मेरी AI मेमोरी” tile was still marked Coming Soon. This follow-up exposes that tile as ready and routes it directly to ProfileScreen. A regression test checks the module is available. Build #211 will validate the change.
 - Worker dry-run validation in CI is not a production deployment. No Cloudflare Worker was deployed and no Firebase Rules were published.
 - Physical-device acceptance, live Firestore Rules publication, Worker deployment approval, and final main-branch release remain outstanding. CI success is not device acceptance.
+
+## Automation checkpoint — 20 November 2026
+
+- Repository: `Prajapatiji-hub/om-study-ai`; feature branch: `feature/ai-chat-sessions`.
+- PR #21: Open, Draft, Unmerged; head `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`, target `main`.
+- PR #22: Open, Draft, Unmerged; head `bca5b4e727b905d957e9519c281da917f185449e`, target `feature/ai-chat-sessions-and-voice`.
+- Latest Build APK: Build #211, run ID `44445793323`, commit `bca5b4e727b905d957e9519c281da917f185449e`; conclusion SUCCESS on 19 November 2026.
+- Build #211 artifact: `om-study-ai-apk`, artifact ID `14493950420`, ZIP size 26,007,538 bytes, expiry 17 February 2027 02:38:29 UTC, GitHub SHA-256 `a9583a9fd92c0f1a2a7656867ae02f04188510b7399248cab0f6db5454a0b984`. Downloaded ZIP checksum matches the GitHub digest.
+- Extracted Build #211 APK: 54,005,750 bytes; SHA-256 `07d503bc95370251689ace6c80d4050ccdcffae9528dbaa5e56649401c2c9b10`. ZIP integrity passed; entry is `app-release.apk` and was identified as an Android package.
+- Build #211 completed all 18 reported job/cleanup steps. Worker JavaScript: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 86 passed; Firestore Rules Emulator: 6 passed, 0 failed; release APK build and artifact upload succeeded.
+- The dashboard's editable AI Study Memory shortcut is enabled and routes to ProfileScreen; its regression test passed in Build #211.
+- Follow-up performance review found that AI Teacher loaded profile, curated memory, onboarding, quiz history, recent chats and legacy history serially, then loaded each recent chat's messages serially. The next code checkpoint starts independent owner-scoped reads together and fetches recent chat message pages concurrently while preserving recency order, per-chat chronology, bounds and per-read failure isolation.
+- Profile and AI Study Memory reads in ProfileScreen's data loader will also start concurrently; neither optional read failure blocks the other.
+- Added pure tests for recent-chat ordering, malformed-row filtering, message/text bounds and concurrent profile/memory reads. Build #212 (triggered by the follow-up commit) must validate these changes.
+- No production Firestore Rules were published and no Cloudflare Worker was deployed. CI Worker dry-run is not a deployment. Physical-device acceptance and final owner approvals remain outstanding.

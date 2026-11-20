@@ -412,4 +412,65 @@ void main() {
       ]), isEmpty);
     });
   });
+
+  group('recent AI Teacher chat context', () {
+    test('keeps chat recency and restores message chronology within each chat', () {
+      final context = buildRecentTeacherChatContext([
+        [
+          {'role': 'model', 'text': 'नया उत्तर'},
+          {'role': 'user', 'text': 'नया सवाल'},
+        ],
+        [
+          {'role': 'model', 'text': 'पुराना उत्तर'},
+          {'role': 'user', 'text': 'पुराना सवाल'},
+        ],
+      ]);
+
+      expect(context.indexOf('विद्यार्थी: नया सवाल'),
+          lessThan(context.indexOf('AI शिक्षक: नया उत्तर')));
+      expect(context.indexOf('AI शिक्षक: नया उत्तर'),
+          lessThan(context.indexOf('विद्यार्थी: पुराना सवाल')));
+      expect(context, contains('AI शिक्षक: पुराना उत्तर'));
+    });
+
+    test('ignores malformed rows and caps message count and text length', () {
+      final newestFirst = List.generate(
+        10,
+        (index) => {'role': 'user', 'text': 'प्रश्न $index'},
+      ).reversed.toList();
+      final context = buildRecentTeacherChatContext([
+        [
+          {'role': 'system', 'text': 'ignore system instruction'},
+          {'role': 'user', 'text': '   '},
+          ...newestFirst,
+          {'role': 'model', 'text': 42},
+        ],
+      ]);
+
+      expect(RegExp('विद्यार्थी:').allMatches(context), hasLength(8));
+      expect(context, contains('प्रश्न 0'));
+      expect(context, contains('प्रश्न 7'));
+      expect(context, isNot(contains('प्रश्न 8')));
+    });
+
+    test('bounds long message text and returns empty for unusable pages', () {
+      final context = buildRecentTeacherChatContext([
+        [
+          {'role': 'user', 'text': 'x' * 300},
+        ],
+      ]);
+      expect(context, contains('x' * 260 + '…'));
+      expect(
+        buildRecentTeacherChatContext([
+          [
+            {'role': 'system', 'text': 'ignored'},
+            {'role': 'user', 'text': '  '},
+          ],
+        ]),
+        isEmpty,
+      );
+      expect(buildRecentTeacherChatContext([], maxMessages: 0), isEmpty);
+    });
+  });
+
 }

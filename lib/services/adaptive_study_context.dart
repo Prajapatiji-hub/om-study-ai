@@ -312,3 +312,33 @@ String buildRecentQuizLearningSummary(
   final summary = parts.join('\n');
   return summary.length > 1200 ? summary.substring(0, 1200) : summary;
 }
+
+/// Formats bounded messages from multiple newest-first chat pages.
+/// The page list is ordered by chat recency; each page is reversed so messages
+/// from that chat are presented chronologically. Invalid roles/text are ignored.
+String buildRecentTeacherChatContext(
+  List<List<Map<String, dynamic>>> newestFirstPages, {
+  int maxMessages = 8,
+  int maxCharacters = 260,
+}) {
+  if (maxMessages <= 0 || maxCharacters <= 0) return '';
+  final lines = <String>[];
+  for (final page in newestFirstPages) {
+    for (final message in page.reversed) {
+      final role = message['role'];
+      final rawText = message['text'];
+      if ((role != 'user' && role != 'model') || rawText is! String) continue;
+      final clean = rawText.trim().replaceAll(RegExp(r'\\s+'), ' ');
+      if (clean.isEmpty) continue;
+      final bounded = clean.length > maxCharacters
+          ? '${clean.substring(0, maxCharacters)}…'
+          : clean;
+      lines.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: $bounded');
+      if (lines.length >= maxMessages) break;
+    }
+    if (lines.length >= maxMessages) break;
+  }
+  if (lines.isEmpty) return '';
+  return 'पिछली अलग-अलग AI Teacher बातचीत से हाल के अध्ययन-संकेत '
+      '(केवल प्रासंगिक होने पर उपयोग करें): ${lines.join(' | ')}';
+}

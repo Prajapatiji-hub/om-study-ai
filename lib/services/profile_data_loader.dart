@@ -1,7 +1,9 @@
 /// Loads the profile and editable AI Study Memory independently.
 ///
 /// A Memory Rules/read failure must not prevent the profile and Study Setup
-/// editor from loading. A null map means that specific read failed.
+/// editor from loading. A null map means that specific read failed. Both
+/// owner-scoped reads start together so a slow optional Memory read does not
+/// unnecessarily delay the profile editor (or vice versa).
 class ProfileDataLoadResult {
   const ProfileDataLoadResult({
     this.profile,
@@ -25,17 +27,24 @@ Future<ProfileDataLoadResult> loadProfileAndMemory({
   Object? profileError;
   Object? memoryError;
 
-  try {
-    profile = await loadProfile();
-  } catch (error) {
-    profileError = error;
+  Future<void> captureProfile() async {
+    try {
+      profile = await loadProfile();
+    } catch (error) {
+      profileError = error;
+    }
   }
 
-  try {
-    memory = await loadMemory();
-  } catch (error) {
-    memoryError = error;
+  Future<void> captureMemory() async {
+    try {
+      memory = await loadMemory();
+    } catch (error) {
+      memoryError = error;
+    }
   }
+
+  // Invoke both loaders before awaiting either result.
+  await Future.wait([captureProfile(), captureMemory()]);
 
   return ProfileDataLoadResult(
     profile: profile,

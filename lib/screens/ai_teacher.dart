@@ -367,120 +367,147 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
     final parts = <String>[];
-    Map<String, dynamic> profile = {};
-    try {
-      profile = (await root.get()).data() ?? <String, dynamic>{};
-    } catch (_) {
-      // Fall back to Study Setup language when a legacy profile is unavailable.
-    }
-    try {
-      final curated = (await root.collection('ai_study_memory').doc('profile').get()).data() ?? <String, dynamic>{};
-      final curatedContext = buildCuratedStudyMemoryContext(curated);
-      if (curatedContext.isNotEmpty) parts.add(curatedContext);
-    } catch (_) {
-      // Curated memory is optional until the consolidated rules are published.
-    }
-    try {
-      final answers = (await root.collection('onboarding').doc('answers').get()).data() ?? {};
-      const labels = {
-        'school': 'स्कूल', 'govt': 'सरकारी परीक्षा', 'iti': 'ITI/कौशल',
-        'hi': 'हिंदी', 'en': 'English', 'hinglish': 'Hinglish',
-        'beginner': 'शुरुआती', 'medium': 'मध्यम', 'good': 'अच्छा',
-      };
-      final goals = resolveStudyGoals(
-        profile: profile,
-        setupAnswers: answers,
-      );
-      if (goals.isNotEmpty) {
-        parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v).join(', ')}');
-      }
-      for (final key in ['school_class','school_board','school_stream','govt_exam','govt_year','iti_trade','hours','time','lesson_len','school_level','govt_level','iti_level','school_hard']) {
-        final value = answers[key];
-        if (value is String && value.isNotEmpty && value != '__skipped') {
-          if (key == 'language') {
-            // Keep the stable locale code for the Worker language selector.
-            parts.add('language: $value (${labels[value] ?? value})');
-          } else {
-            parts.add('$key: ${labels[value] ?? value}');
-          }
-        }
-      }
-      final preferredLanguage = resolveStudyLanguage(
-        profile: profile,
-        setupAnswers: answers,
-      );
-      if (preferredLanguage != null) {
-        // The profile is editable; its language takes precedence over setup.
-        parts.add('language: $preferredLanguage (${labels[preferredLanguage] ?? preferredLanguage})');
-      }
-    } catch (_) {
-      // Learning context is optional; never block a student's question.
-    }
-    try {
-      final attempts = await root.collection('quiz_attempts')
-          .orderBy('createdAt', descending: true).limit(3).get();
-      final quizSummary = buildRecentQuizLearningSummary(
-        attempts.docs.map((doc) => doc.data()).toList(),
-      );
-      if (quizSummary.isNotEmpty) parts.add(quizSummary);
-    } catch (_) {
-      // Older accounts may not have quiz history or its index yet.
-    }
-    // Bring a small sample of this student's earlier AI Teacher Q&A into
-    // every new chat. This makes personalization follow the learner across
-    // separate sessions without copying or migrating legacy messages.
-    try {
-      final recentChats = await root.collection('ai_chats')
-          .orderBy('updatedAt', descending: true)
-          .limit(4)
-          .get();
-      final recentQa = <String>[];
-      for (final chat in recentChats.docs) {
-        if (chat.id == _chatId) continue; // Current chat history is sent separately.
-        final messages = await chat.reference.collection('messages')
-            .orderBy('createdAt', descending: true)
-            .limit(4)
-            .get();
-        for (final doc in messages.docs.reversed) {
-          final data = doc.data();
-          final role = data['role'];
-          final text = data['text'];
-          if ((role == 'user' || role == 'model') && text is String && text.trim().isNotEmpty) {
-            final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-            recentQa.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 260 ? '${clean.substring(0, 260)}…' : clean}');
-          }
-        }
-        if (recentQa.length >= 8) break;
-      }
-      if (recentQa.isNotEmpty) {
-        parts.add('पिछली अलग-अलग AI Teacher बातचीत से हाल के अध्ययन-संकेत (केवल प्रासंगिक होने पर उपयोग करें): ${recentQa.take(8).join(' | ')}');
-      }
-    } catch (_) {
-      // Cross-chat context is optional; never block a student's question.
-    }
-    try {
-      // Older flat history remains read-only and is sampled without migration.
-      final legacy = await root.collection('ai_teacher_messages')
-          .orderBy('createdAt', descending: true)
-          .limit(4)
-          .get();
-      final legacyQa = legacy.docs.reversed.map((doc) {
-        final data = doc.data();
-        final role = data['role'];
-        final text = data['text'];
-        if ((role != 'user' && role != 'model') || text is! String || text.trim().isEmpty) return '';
-        final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
-        return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: ${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
-      }).where((line) => line.isNotEmpty).toList();
-      if (legacyQa.isNotEmpty) {
-        parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
-      }
-    } catch (_) {
-      // Legacy history may not exist for newer accounts.
-    }
-    return parts.join('\n').substring(0, parts.join('\n').length > 3000 ? 3000 : parts.join('\n').length);
-  }
 
+    // Start independent, owner-scoped reads together. A slow optional history
+    // query must not serialize profile, setup, memory, quiz and chat lookups.
+    final Future<Map<String, dynamic>> profileFuture = root.get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<Map<String, dynamic>> memoryFuture = root
+        .collection('ai_study_memory')
+        .doc('profile')
+        .get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<Map<String, dynamic>> answersFuture = root
+        .collection('onboarding')
+        .doc('answers')
+        .get()
+        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
+        .catchError((_) => <String, dynamic>{});
+    final Future<List<Map<String, dynamic>>> attemptsFuture = root
+        .collection('quiz_attempts')
+        .orderBy('createdAt', descending: true)
+        .limit(3)
+        .get()
+        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
+        .catchError((_) => <Map<String, dynamic>>[]);
+    final Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> chatsFuture =
+        root.collection('ai_chats')
+            .orderBy('updatedAt', descending: true)
+            .limit(4)
+            .get()
+            .then((snapshot) => snapshot.docs)
+            .catchError((_) => <QueryDocumentSnapshot<Map<String, dynamic>>>[]);
+    final Future<List<Map<String, dynamic>>> legacyFuture = root
+        .collection('ai_teacher_messages')
+        .orderBy('createdAt', descending: true)
+        .limit(4)
+        .get()
+        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
+        .catchError((_) => <Map<String, dynamic>>[]);
+
+    final results = await Future.wait<Object?>([
+      profileFuture,
+      memoryFuture,
+      answersFuture,
+      attemptsFuture,
+      chatsFuture,
+      legacyFuture,
+    ]);
+    final profile = results[0] as Map<String, dynamic>;
+    final curated = results[1] as Map<String, dynamic>;
+    final answers = results[2] as Map<String, dynamic>;
+    final attempts = results[3] as List<Map<String, dynamic>>;
+    final recentChats =
+        results[4] as List<QueryDocumentSnapshot<Map<String, dynamic>>>;
+    final legacy = results[5] as List<Map<String, dynamic>>;
+
+    // Curated memory is optional until the consolidated Rules are published.
+    final curatedContext = buildCuratedStudyMemoryContext(curated);
+    if (curatedContext.isNotEmpty) parts.add(curatedContext);
+
+    const labels = {
+      'school': 'स्कूल', 'govt': 'सरकारी परीक्षा', 'iti': 'ITI/कौशल',
+      'hi': 'हिंदी', 'en': 'English', 'hinglish': 'Hinglish',
+      'beginner': 'शुरुआती', 'medium': 'मध्यम', 'good': 'अच्छा',
+    };
+    final goals = resolveStudyGoals(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (goals.isNotEmpty) {
+      parts.add('पढ़ाई के लक्ष्य: ${goals.map((v) => labels[v] ?? v).join(', ')}');
+    }
+    for (final key in [
+      'school_class', 'school_board', 'school_stream', 'govt_exam',
+      'govt_year', 'iti_trade', 'hours', 'time', 'lesson_len',
+      'school_level', 'govt_level', 'iti_level', 'school_hard',
+    ]) {
+      final value = answers[key];
+      if (value is String && value.isNotEmpty && value != '__skipped') {
+        parts.add('$key: ${labels[value] ?? value}');
+      }
+    }
+    final preferredLanguage = resolveStudyLanguage(
+      profile: profile,
+      setupAnswers: answers,
+    );
+    if (preferredLanguage != null) {
+      // The editable profile is authoritative; setup is the legacy fallback.
+      parts.add(
+        'language: $preferredLanguage (${labels[preferredLanguage] ?? preferredLanguage})',
+      );
+    }
+
+    final quizSummary = buildRecentQuizLearningSummary(attempts);
+    if (quizSummary.isNotEmpty) parts.add(quizSummary);
+
+    // Fetch each recent chat's message page concurrently. Future.wait keeps
+    // the chat-list order stable, so the most recently active chat is first.
+    final chatsToLoad = recentChats
+        .where((chat) => chat.id != _chatId)
+        .take(4)
+        .toList();
+    final chatMessagePages = await Future.wait(
+      chatsToLoad.map((chat) async {
+        try {
+          final messages = await chat.reference
+              .collection('messages')
+              .orderBy('createdAt', descending: true)
+              .limit(4)
+              .get();
+          return messages.docs.map((doc) => doc.data()).toList();
+        } catch (_) {
+          // One unavailable chat must not hide the student's other history.
+          return <Map<String, dynamic>>[];
+        }
+      }),
+    );
+    final recentChatContext =
+        buildRecentTeacherChatContext(chatMessagePages);
+    if (recentChatContext.isNotEmpty) parts.add(recentChatContext);
+
+    // Older flat history stays read-only and is never migrated or rewritten.
+    final legacyQa = legacy.reversed.map((data) {
+      final role = data['role'];
+      final text = data['text'];
+      if ((role != 'user' && role != 'model') ||
+          text is! String ||
+          text.trim().isEmpty) {
+        return '';
+      }
+      final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+      return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: '
+          '${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
+    }).where((line) => line.isNotEmpty).toList();
+    if (legacyQa.isNotEmpty) {
+      parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
+    }
+
+    final context = parts.join('\\n');
+    return context.length > 3000 ? context.substring(0, 3000) : context;
+  }
   Future<void> _send() async {
     final text=_controller.text.trim();
     if (text.isEmpty || _sending || _legacy) return;
