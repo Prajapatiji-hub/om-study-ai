@@ -362,3 +362,10 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Post-build source review caught two escaped-string regressions in the new AI learning-context optimization: whitespace normalization used a literal backslash sequence, and context sections were joined using a literal backslash-n rather than newline. The existing tests did not exercise these exact formatting cases, so Build #212 passing does not validate those two behaviors.
 - The follow-up correction restores whitespace normalization, extracts a bounded newline-joining helper, and adds regression tests for whitespace, real section separators and the 3,000-character context ceiling. The corrected source must be validated by the next Build APK workflow before it is treated as verified.
 - No production Firestore Rules were published and no Cloudflare Worker was deployed. Real-device acceptance and owner approvals remain outstanding.
+
+## Build #213 failure analysis — 20 November 2026
+
+- Build #213: run ID `44663865811`, commit `c5ed3346ba82a4b3ff995eba134d37389aa5fea9`; conclusion FAILURE.
+- Steps through Flutter Analyze passed. Flutter tests reported 91 passed and 2 failed. Firestore Emulator, Android NDK, APK build and artifact upload were skipped after the test failure; Build #213 produced no APK artifact.
+- Both failures were in the newly added regression fixtures, not the production helpers: the test source encoded a literal backslash-n sequence while expecting a real newline/whitespace collapse. The production code now uses a whitespace regex and actual newline separators. The fixtures have been corrected to encode Dart newline escapes once; the next workflow must confirm all 93 tests pass.
+- No Firestore Rules or Cloudflare Worker deployment was performed.

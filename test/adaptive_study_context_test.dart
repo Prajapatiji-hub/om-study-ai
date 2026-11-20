@@ -457,7 +457,7 @@ void main() {
     test('normalizes whitespace in recent student messages', () {
       final context = buildRecentTeacherChatContext([
         [
-          {'role': 'user', 'text': '  मेरा   सवाल\\n अगली   पंक्ति  '},
+          {'role': 'user', 'text': '  मेरा   सवाल\n अगली   पंक्ति  '},
         ],
       ]);
       expect(context, contains('विद्यार्थी: मेरा सवाल अगली पंक्ति'));
@@ -488,7 +488,7 @@ void main() {
     test('separates profile, memory and history with real newlines', () {
       expect(
         joinStudyContextParts(['profile context', 'memory context', 'quiz context']),
-        'profile context\\nmemory context\\nquiz context',
+        'profile context\nmemory context\nquiz context',
       );
     });
 
