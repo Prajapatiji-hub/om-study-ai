@@ -242,7 +242,10 @@ export async function readJsonRequest(request, maxBytes = 16000) {
 }
 
 export function preferredLanguageFromStudyContext(context) {
-  const match = String(context || "").match(/(?:^|\n)\s*language:\s*(en|hinglish|hi)(?:\s|$)/i);
+  // Only trust the app-generated first-line header. Student memory, chat text
+  // and quiz content may contain arbitrary "language:" strings.
+  const firstLine = String(context || "").split(/\r?\n/, 1)[0].trim();
+  const match = firstLine.match(/^language:\s*(en|hinglish|hi)$/i);
   return match ? match[1].toLowerCase() : "hi";
 }
 

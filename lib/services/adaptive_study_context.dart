@@ -170,19 +170,14 @@ String buildAdaptiveQuizContext({
   final parts = <String>[];
   for (final key in [
     'goals', 'school_class', 'school_board', 'school_stream', 'govt_exam',
-    'govt_year', 'iti_trade', 'language', 'hours', 'time', 'lesson_len',
+    'govt_year', 'iti_trade', 'hours', 'time', 'lesson_len',
     'school_level', 'govt_level', 'iti_level', 'school_hard',
   ]) {
     final value = setupAnswers[key];
     if (value is String && value.trim().isNotEmpty && value != '__skipped') {
-      if (key == 'language') {
-        // The Worker reads this stable field to choose Hindi, English or Hinglish.
-        parts.add('language: ${value.trim()}');
-      } else {
-        parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.trim()}');
-      }
+      parts.add('विद्यार्थी की पढ़ाई सेटअप — ${key}: ${value.trim()}');
     } else if (value is List && value.isNotEmpty) {
-      parts.add('विद्यार्थी की पढ़ाई सेटअप — $key: ${value.join(', ')}');
+      parts.add('विद्यार्थी की पढ़ाई सेटअप — ${key}: ${value.join(', ')}');
     }
   }
 
@@ -245,8 +240,11 @@ String buildAdaptiveQuizContext({
     parts.add('पुरानी सुरक्षित AI Teacher बातचीत से सवाल: ${legacy.join(' | ')}');
   }
 
-  final context = parts.join('\n');
-  return context.length > 3000 ? context.substring(0, 3000) : context;
+  final language = setupAnswers['language'];
+  return joinStudyContextParts(
+    parts,
+    preferredLanguage: language is String ? language : null,
+  );
 }
 
 /// Summarizes only this student's recent, explicitly incorrect quiz responses
@@ -348,9 +346,17 @@ String buildRecentTeacherChatContext(
 String joinStudyContextParts(
   List<String> parts, {
   int maxCharacters = 3000,
+  String? preferredLanguage,
 }) {
   if (maxCharacters <= 0) return '';
-  final context = parts.join('\n');
+  const supportedLanguages = {'hi', 'en', 'hinglish'};
+  final language = preferredLanguage?.trim().toLowerCase();
+  final contextParts = <String>[
+    if (language != null && supportedLanguages.contains(language))
+      'language: ${language}',
+    ...parts.where((part) => part.trim().isNotEmpty),
+  ];
+  final context = contextParts.join('\n');
   return context.length > maxCharacters
       ? context.substring(0, maxCharacters)
       : context;

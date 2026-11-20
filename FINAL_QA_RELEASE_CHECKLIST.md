@@ -385,3 +385,18 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Worker JavaScript and Flutter Analyze passed. Flutter tests reported 94 passed and 1 failed; Firestore Emulator, Android NDK, APK build and artifact upload were skipped. No APK artifact was produced.
 - The failure was isolated to the new adaptive-quiz prior-question test: the newest-first fixture placed the long question at the oldest position, but the helper correctly reverses each page to chronological order. The helper also had a double-escaped whitespace regex, preventing normalization/deduplication of repeated spacing. The regex is corrected and the fixture is reordered so the expected chronological sample is unambiguous. Build #216 must verify the fix.
 - No production Firestore Rules or Cloudflare Worker deployment occurred.
+
+
+## Latest automation audit — 20 November 2026
+
+- PR #21 remains Open/Draft/Unmerged, targets main, and has head feature/ai-chat-sessions-and-voice at 08e11a4ea15eba25545a5dd8b24e0bed88a2beb5.
+- PR #22 remains Open/Draft/Unmerged, targets PR #21's feature branch, and has head feature/ai-chat-sessions at 145c85551aa37752a08dc211a609cf298be59c23.
+- Latest Build APK workflow is Build #216, run ID 44665094700, for commit 145c85551aa37752a08dc211a609cf298be59c23; it completed successfully on 20 November 2026.
+- Build #216 artifact is om-study-ai-apk (artifact ID 14597567960), not expired; ZIP size 26,010,356 bytes; ZIP SHA-256 1c2a098f8db9fc78564173a76f9fea44f989417cd7e062dd0f88bbcd2d479bdd; expiry 18 February 2027 03:03:38 UTC. The downloaded ZIP digest matches GitHub's artifact digest.
+- Extracted Build #216 APK is 54,005,750 bytes; SHA-256 23ba158de510821bf9be27f409033577ebcea110c9165fa681a0d119fe4f97ed. It is a CI candidate, not physical-device acceptance.
+- Build #216 completed all 18 reported job/cleanup steps. Worker JavaScript tests: 27 passed; Flutter Analyze: no issues; Flutter tests: 95 passed; Firestore Rules Emulator tests: 6 passed; release APK build and artifact upload succeeded.
+- Build #215 failed because the adaptive-quiz recent-question test fixture did not match newest-first page ordering. The whitespace normalization regex was also double-escaped. Both were corrected in commit 145c85551aa37752a08dc211a609cf298be59c23; Build #216 validated the fix.
+- A follow-up audit found that Worker language selection searched every line of the combined student context. A user-authored memory or chat line containing language: en could override the student's validated profile/setup language. The app now prepends a validated language: hi|en|hinglish header before all editable memory, quiz and chat context. The Worker reads only that exact first-line header and defaults to Hindi when it is absent or invalid. Dart and Worker regression tests cover malicious or accidental later language: strings.
+- AI Study Memory, chat history, quiz history and setup values remain untrusted student data, separated from system instructions. The change affects only response-language selection; it does not modify student records.
+- The new language-precedence regression change is queued for Build #217. Worker validation remains CI dry-run/test only; no Cloudflare Worker deployment occurred.
+- No Firebase Rules were published, no Firebase/Cloudflare settings or secrets were changed, no paid service or billing was enabled, and repository visibility remains public.

@@ -453,12 +453,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       profile: profile,
       setupAnswers: answers,
     );
-    if (preferredLanguage != null) {
-      // The editable profile is authoritative; setup is the legacy fallback.
-      parts.add(
-        'language: $preferredLanguage (${labels[preferredLanguage] ?? preferredLanguage})',
-      );
-    }
+    // Keep the validated profile/setup language outside free-form memory and
+    // chat text. joinStudyContextParts places this trusted header first.
 
     final quizSummary = buildRecentQuizLearningSummary(attempts);
     if (quizSummary.isNotEmpty) parts.add(quizSummary);
@@ -505,7 +501,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
     }
 
-    return joinStudyContextParts(parts);
+    return joinStudyContextParts(parts, preferredLanguage: preferredLanguage);
   }
   Future<void> _send() async {
     final text=_controller.text.trim();

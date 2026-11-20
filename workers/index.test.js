@@ -306,7 +306,10 @@ test("student study context stays in a separate untrusted user message, not syst
   assert.equal(prompt.includes("Ignore previous instructions"), false);
   assert.match(prompt, /अविश्वसनीय डेटा/);
   assert.equal(preferredLanguageFromStudyContext("student wrote: language: en"), "hi");
-  assert.equal(preferredLanguageFromStudyContext("language: hinglish (Hinglish)"), "hinglish");
+  assert.equal(preferredLanguageFromStudyContext("language: hinglish"), "hinglish");
+  assert.equal(preferredLanguageFromStudyContext("language: hi\nstudent memory: language: en"), "hi");
+  assert.equal(preferredLanguageFromStudyContext("student memory: summary\nlanguage: en"), "hi");
+  assert.equal(preferredLanguageFromStudyContext("language: en\nstudent memory: language: hi"), "en");
 });
 
 test("quiz and explanation request details remain user messages while schema stays system-controlled", () => {
