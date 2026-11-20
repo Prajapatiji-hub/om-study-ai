@@ -428,3 +428,15 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - All 19 reported job/cleanup steps passed. Worker JavaScript: 27 passed; Flutter Analyze: no issues; Flutter tests: 96 passed; Firestore Rules Emulator: 8 passed; Android NDK, APK compilation and artifact upload succeeded.
 - The consolidated Firestore Rules candidate passed the Emulator suite. It has not been published to Firebase. A follow-up test-only checkpoint adds explicit government-exam and ITI branch completion cases and confirms that already-completed accounts can continue editing setup without being re-gated; this will be Build #220.
 - No Firebase Rules publication or Cloudflare Worker deployment occurred.
+
+
+## Build #220 verification and voice preference read optimization — 20 November 2026
+
+- Build #220 run ID `44668109445` completed successfully for commit `5dcf298a7f5647f0173157214806c2ab27df8bce`.
+- Artifact: `om-study-ai-apk`, artifact ID `14598258722`, ZIP size 26,009,377 bytes, expiry 18 February 2027 03:29:51 UTC; GitHub SHA-256 `4116165b67003ff1b235257e98809b3355330d6acd741a6e9297400085fe51c2`.
+- Extracted APK: 54,005,750 bytes; SHA-256 `cbfa53a571316dc4ca80a113c91ba816dacc734be9a0f77d477b6d4549c69607`. The downloaded ZIP digest matches GitHub's artifact digest; ZIP integrity passed and the entry was identified as an Android APK.
+- All 19 reported job/cleanup steps passed. Worker JavaScript: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 96 passed; Firestore Rules Emulator: 10 passed, 0 failed; release APK compilation and artifact upload succeeded.
+- Build #220 adds Firestore Emulator coverage for government-exam and ITI conditional Study Setup branches and verifies that already-completed accounts can continue editing setup without being re-gated. The consolidated Rules candidate passed these tests and remains unpublished.
+- Source review found that AI Teacher voice locale selection read the profile document and Study Setup answers sequentially, despite their independent fallback behavior. The follow-up starts both owner-scoped reads concurrently and isolates each failure; profile language still takes precedence, Study Setup remains the legacy fallback, and Hindi remains the default when both reads fail.
+- Added regression tests for concurrent invocation and each independent failure/fallback case. Build #221 must validate these tests, Analyze, Rules Emulator, APK and artifact upload.
+- No Firebase Rules publication, Cloudflare Worker deployment, settings changes, secret access or paid-service activation occurred. Real-device voice permission, Hindi/English recognition and TTS acceptance remains pending.

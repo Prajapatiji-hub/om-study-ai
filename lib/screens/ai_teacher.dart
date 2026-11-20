@@ -8,6 +8,7 @@ import '../services/ai_teacher_service.dart';
 import '../services/chat_message_pagination.dart';
 import '../services/adaptive_study_context.dart';
 import '../services/voice_lifecycle.dart';
+import '../services/voice_preference_loader.dart';
 import '../theme.dart';
 
 class AiTeacherScreen extends StatefulWidget {
@@ -52,26 +53,24 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     final user = _user;
     if (user == null) return;
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    Map<String, dynamic> profile = {};
-    Map<String, dynamic> answers = {};
 
-    // Read independently: a missing/denied legacy setup document must not
-    // override a valid editable profile language, and vice versa.
-    try {
-      profile = (await root.get()).data() ?? <String, dynamic>{};
-    } catch (_) {
-      // Study Setup remains the fallback for older accounts.
-    }
-    try {
-      answers = (await root.collection('onboarding').doc('answers').get()).data() ??
-          <String, dynamic>{};
-    } catch (_) {
-      // Keep the Hindi default if neither source has a supported locale.
-    }
+    // Profile and Study Setup are independent owner-scoped reads. Start both
+    // together and isolate failures so a missing legacy document cannot delay
+    // the other source or prevent the Hindi fallback.
+    final preferenceData = await loadVoicePreferenceData(
+      loadProfile: () async {
+        final snapshot = await root.get();
+        return snapshot.data() ?? <String, dynamic>{};
+      },
+      loadSetupAnswers: () async {
+        final snapshot = await root.collection('onboarding').doc('answers').get();
+        return snapshot.data() ?? <String, dynamic>{};
+      },
+    );
 
     final locale = resolveVoiceLocale(
-      profile: profile,
-      setupAnswers: answers,
+      profile: preferenceData.profile,
+      setupAnswers: preferenceData.setupAnswers,
     );
     if (mounted) setState(() => _voiceLocale = locale);
   }
