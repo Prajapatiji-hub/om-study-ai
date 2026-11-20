@@ -328,7 +328,7 @@ String buildRecentTeacherChatContext(
       final role = message['role'];
       final rawText = message['text'];
       if ((role != 'user' && role != 'model') || rawText is! String) continue;
-      final clean = rawText.trim().replaceAll(RegExp(r'\\s+'), ' ');
+      final clean = rawText.trim().replaceAll(RegExp(r'\s+'), ' ');
       if (clean.isEmpty) continue;
       final bounded = clean.length > maxCharacters
           ? '${clean.substring(0, maxCharacters)}…'
@@ -341,4 +341,17 @@ String buildRecentTeacherChatContext(
   if (lines.isEmpty) return '';
   return 'पिछली अलग-अलग AI Teacher बातचीत से हाल के अध्ययन-संकेत '
       '(केवल प्रासंगिक होने पर उपयोग करें): ${lines.join(' | ')}';
+}
+
+/// Joins independently collected learning signals with real newline separators,
+/// then enforces the request-size ceiling before sending context to the Worker.
+String joinStudyContextParts(
+  List<String> parts, {
+  int maxCharacters = 3000,
+}) {
+  if (maxCharacters <= 0) return '';
+  final context = parts.join('\n');
+  return context.length > maxCharacters
+      ? context.substring(0, maxCharacters)
+      : context;
 }

@@ -352,3 +352,13 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Profile and AI Study Memory reads in ProfileScreen's data loader will also start concurrently; neither optional read failure blocks the other.
 - Added pure tests for recent-chat ordering, malformed-row filtering, message/text bounds and concurrent profile/memory reads. Build #212 (triggered by the follow-up commit) must validate these changes.
 - No production Firestore Rules were published and no Cloudflare Worker was deployed. CI Worker dry-run is not a deployment. Physical-device acceptance and final owner approvals remain outstanding.
+
+## Build #212 verification and follow-up correction — 20 November 2026
+
+- Build #212: run ID `44662918096`, commit `41f8eeb33269f94280895e08cd80c4edd342b187`, conclusion SUCCESS on 20 November 2026.
+- Artifact: `om-study-ai-apk`, artifact ID `14597480064`, ZIP size 26,011,200 bytes, expiry 18 February 2027 02:44:25 UTC, GitHub SHA-256 `adf504bc17cc0d5a4688552fff03c9b8b01209421de790c645d9719f4a4ec383`; downloaded ZIP checksum matched.
+- Extracted APK: 54,005,750 bytes; SHA-256 `2222452f6ce823ea2a0be51bf6d2c6705222799c646718d1ae7d35a59bd58c30`. ZIP integrity passed and the archive contains `app-release.apk`.
+- Build #212 completed all 18 reported job/cleanup steps. Worker JavaScript: 27 passed, 0 failed; Flutter Analyze: no issues; Flutter tests: 90 passed; Firestore Rules Emulator: 6 passed, 0 failed; release APK build and artifact upload succeeded.
+- Post-build source review caught two escaped-string regressions in the new AI learning-context optimization: whitespace normalization used a literal backslash sequence, and context sections were joined using a literal backslash-n rather than newline. The existing tests did not exercise these exact formatting cases, so Build #212 passing does not validate those two behaviors.
+- The follow-up correction restores whitespace normalization, extracts a bounded newline-joining helper, and adds regression tests for whitespace, real section separators and the 3,000-character context ceiling. The corrected source must be validated by the next Build APK workflow before it is treated as verified.
+- No production Firestore Rules were published and no Cloudflare Worker was deployed. Real-device acceptance and owner approvals remain outstanding.

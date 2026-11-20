@@ -453,6 +453,16 @@ void main() {
       expect(context, isNot(contains('प्रश्न 8')));
     });
 
+
+    test('normalizes whitespace in recent student messages', () {
+      final context = buildRecentTeacherChatContext([
+        [
+          {'role': 'user', 'text': '  मेरा   सवाल\\n अगली   पंक्ति  '},
+        ],
+      ]);
+      expect(context, contains('विद्यार्थी: मेरा सवाल अगली पंक्ति'));
+    });
+
     test('bounds long message text and returns empty for unusable pages', () {
       final context = buildRecentTeacherChatContext([
         [
@@ -470,6 +480,21 @@ void main() {
         isEmpty,
       );
       expect(buildRecentTeacherChatContext([], maxMessages: 0), isEmpty);
+    });
+  });
+
+
+  group('study context joining', () {
+    test('separates profile, memory and history with real newlines', () {
+      expect(
+        joinStudyContextParts(['profile context', 'memory context', 'quiz context']),
+        'profile context\\nmemory context\\nquiz context',
+      );
+    });
+
+    test('keeps the combined context within its configured character budget', () {
+      expect(joinStudyContextParts(['x' * 3001]), 'x' * 3000);
+      expect(joinStudyContextParts(['context'], maxCharacters: 0), isEmpty);
     });
   });
 

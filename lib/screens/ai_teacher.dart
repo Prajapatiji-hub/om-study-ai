@@ -497,7 +497,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           text.trim().isEmpty) {
         return '';
       }
-      final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
+      final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
       return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: '
           '${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
     }).where((line) => line.isNotEmpty).toList();
@@ -505,8 +505,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
     }
 
-    final context = parts.join('\\n');
-    return context.length > 3000 ? context.substring(0, 3000) : context;
+    return joinStudyContextParts(parts);
   }
   Future<void> _send() async {
     final text=_controller.text.trim();
