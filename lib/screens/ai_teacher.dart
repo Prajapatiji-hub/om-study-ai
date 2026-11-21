@@ -9,6 +9,7 @@ import '../services/chat_message_pagination.dart';
 import '../services/adaptive_study_context.dart';
 import '../services/voice_lifecycle.dart';
 import '../services/voice_preference_loader.dart';
+import '../services/optional_study_context_read.dart';
 import '../theme.dart';
 
 class AiTeacherScreen extends StatefulWidget {
@@ -367,44 +368,51 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
     final parts = <String>[];
 
-    // Start independent, owner-scoped reads together. A slow optional history
-    // query must not serialize profile, setup, memory, quiz and chat lookups.
-    final Future<Map<String, dynamic>> profileFuture = root.get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<Map<String, dynamic>> memoryFuture = root
-        .collection('ai_study_memory')
-        .doc('profile')
-        .get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<Map<String, dynamic>> answersFuture = root
-        .collection('onboarding')
-        .doc('answers')
-        .get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<List<Map<String, dynamic>>> attemptsFuture = root
-        .collection('quiz_attempts')
-        .orderBy('createdAt', descending: true)
-        .limit(3)
-        .get()
-        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
-        .catchError((_) => <Map<String, dynamic>>[]);
-    final Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> chatsFuture =
-        root.collection('ai_chats')
-            .orderBy('updatedAt', descending: true)
-            .limit(4)
-            .get()
-            .then((snapshot) => snapshot.docs)
-            .catchError((_) => <QueryDocumentSnapshot<Map<String, dynamic>>>[]);
-    final Future<List<Map<String, dynamic>>> legacyFuture = root
-        .collection('ai_teacher_messages')
-        .orderBy('createdAt', descending: true)
-        .limit(4)
-        .get()
-        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
-        .catchError((_) => <Map<String, dynamic>>[]);
+    // These reads are optional personalization signals. Start them together,
+    // but cap each wait so one offline/slow collection cannot block the answer.
+    final profileFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root.get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final memoryFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root
+          .collection('ai_study_memory')
+          .doc('profile')
+          .get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final answersFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root
+          .collection('onboarding')
+          .doc('answers')
+          .get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final attemptsFuture = loadOptionalStudyContext<List<Map<String, dynamic>>>(
+      load: () async => (await root
+          .collection('quiz_attempts')
+          .orderBy('createdAt', descending: true)
+          .limit(3)
+          .get()).docs.map((doc) => doc.data()).toList(),
+      fallback: <Map<String, dynamic>>[],
+    );
+    final chatsFuture = loadOptionalStudyContext<
+        List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+      load: () async => (await root
+          .collection('ai_chats')
+          .orderBy('updatedAt', descending: true)
+          .limit(4)
+          .get()).docs,
+      fallback: <QueryDocumentSnapshot<Map<String, dynamic>>>[],
+    );
+    final legacyFuture = loadOptionalStudyContext<List<Map<String, dynamic>>>(
+      load: () async => (await root
+          .collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(4)
+          .get()).docs.map((doc) => doc.data()).toList(),
+      fallback: <Map<String, dynamic>>[],
+    );
 
     final results = await Future.wait<Object?>([
       profileFuture,
@@ -452,32 +460,26 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
       profile: profile,
       setupAnswers: answers,
     );
-    // Keep the validated profile/setup language outside free-form memory and
-    // chat text. joinStudyContextParts places this trusted header first.
 
     final quizSummary = buildRecentQuizLearningSummary(attempts);
     if (quizSummary.isNotEmpty) parts.add(quizSummary);
 
-    // Fetch each recent chat's message page concurrently. Future.wait keeps
-    // the chat-list order stable, so the most recently active chat is first.
+    // Fetch recent chats concurrently. Each page has its own deadline and
+    // fallback so one inaccessible conversation does not hide other signals.
     final chatsToLoad = recentChats
         .where((chat) => chat.id != _chatId)
         .take(4)
         .toList();
     final chatMessagePages = await Future.wait(
-      chatsToLoad.map((chat) async {
-        try {
-          final messages = await chat.reference
-              .collection('messages')
-              .orderBy('createdAt', descending: true)
-              .limit(4)
-              .get();
-          return messages.docs.map((doc) => doc.data()).toList();
-        } catch (_) {
-          // One unavailable chat must not hide the student's other history.
-          return <Map<String, dynamic>>[];
-        }
-      }),
+      chatsToLoad.map((chat) =>
+          loadOptionalStudyContext<List<Map<String, dynamic>>>(
+        load: () async => (await chat.reference
+            .collection('messages')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get()).docs.map((doc) => doc.data()).toList(),
+        fallback: <Map<String, dynamic>>[],
+      )),
     );
     final recentChatContext =
         buildRecentTeacherChatContext(chatMessagePages);
@@ -492,7 +494,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
           text.trim().isEmpty) {
         return '';
       }
-      final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
       return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: '
           '${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
     }).where((line) => line.isNotEmpty).toList();

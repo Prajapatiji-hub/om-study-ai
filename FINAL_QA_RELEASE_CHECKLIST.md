@@ -9,7 +9,7 @@
 
 # OM STUDY AI — Final QA, Security & Release Checklist
 
-## Latest automation audit — 18 November 2026
+## Historical automation audit — 18 November 2026
 
 - PR #21 remains Open/Draft/Unmerged and targets `main`; its head branch is `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
 - PR #22 remains Open/Draft/Unmerged and targets PR #21's feature branch; its head branch is `feature/ai-chat-sessions` at `a3ee641b52793d219c4de48e4125b1ffb27fc390`. The feature-branch head matches Build #209.
@@ -440,3 +440,18 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Source review found that AI Teacher voice locale selection read the profile document and Study Setup answers sequentially, despite their independent fallback behavior. The follow-up starts both owner-scoped reads concurrently and isolates each failure; profile language still takes precedence, Study Setup remains the legacy fallback, and Hindi remains the default when both reads fail.
 - Added regression tests for concurrent invocation and each independent failure/fallback case. Build #221 must validate these tests, Analyze, Rules Emulator, APK and artifact upload.
 - No Firebase Rules publication, Cloudflare Worker deployment, settings changes, secret access or paid-service activation occurred. Real-device voice permission, Hindi/English recognition and TTS acceptance remains pending.
+
+
+## Build #221 verified artifact and bounded AI context reads — 21 November 2026
+
+- PR #21 is Open, Draft and Unmerged; it targets `main` from `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
+- PR #22 is Open, Draft and Unmerged; it targets PR #21's feature branch. Its head branch `feature/ai-chat-sessions` is `37a172ed3b612efe0d2379df4729133700a3a7a6`, matching the latest branch commit and Build #221.
+- Build #221 (run ID `44669438089`) completed successfully for commit `37a172ed3b612efe0d2379df4729133700a3a7a6`.
+- Artifact: `om-study-ai-apk`, artifact ID `14599339139`, ZIP size 26,015,510 bytes, expiry 18 February 2027 03:41:36 UTC; GitHub SHA-256 `24a9f00b3333e8ec32cd7a29c3f5b471533d3cbd93ebd0922a853e07c8eee8ea`.
+- Extracted APK: 54,005,750 bytes; SHA-256 `77401e78a7c96238452dec510b247735fe7061fd647398858aedca79f22aa4af`. The downloaded ZIP digest matches GitHub's artifact digest; ZIP integrity passed and the entry was identified as an Android APK.
+- All 19 reported job/cleanup steps passed. Worker JavaScript: 27 passed; Flutter Analyze: no issues; Flutter tests: 100 passed; Firestore Rules Emulator: 10 passed; Android NDK, release APK compilation and artifact upload succeeded.
+- Build #221 validates the concurrent voice-preference loader. Profile language remains first preference, Study Setup is the legacy fallback, and Hindi remains the default when both reads fail.
+- Source audit confirmed that AI Teacher context and adaptive-quiz context use the student's own profile, Study Setup, curated AI Study Memory, recent quiz attempts, recent chat sessions/messages and read-only legacy AI Teacher history. Existing chats are not migrated or modified.
+- Follow-up hardening adds a shared 8-second timeout/fallback for optional context reads in both AI Teacher and adaptive quiz. A slow or unavailable optional collection/page will no longer hold the full AI request indefinitely; other available student signals remain usable. Required writes and auth checks do not use this fallback helper.
+- Added unit tests for successful reads, thrown errors, timeout fallback, single invocation and fallback immutability. Build #222 must validate these tests, Flutter Analyze, the Firestore Emulator suite, APK compilation and artifact upload.
+- No Firebase Rules publication, Cloudflare Worker deployment, Firebase/Cloudflare settings change, secret access, paid-service activation or billing change occurred. Real-device signup, setup, privacy, voice and image-generation acceptance remains pending.

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/user_repo.dart';
 import '../services/ai_teacher_service.dart';
 import '../services/adaptive_study_context.dart';
+import '../services/optional_study_context_read.dart';
 import '../theme.dart';
 import 'ai_teacher.dart';
 
@@ -80,44 +81,51 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     if (user == null) return '';
     final root = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-    // Start the independent, owner-scoped learning reads together. Optional
-    // missing history must not block the setup, curated memory or quiz records.
-    final Future<Map<String, dynamic>> profileFuture = root.get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<Map<String, dynamic>> answersFuture = root
-        .collection('onboarding')
-        .doc('answers')
-        .get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<Map<String, dynamic>> memoryFuture = root
-        .collection('ai_study_memory')
-        .doc('profile')
-        .get()
-        .then((snapshot) => snapshot.data() ?? <String, dynamic>{})
-        .catchError((_) => <String, dynamic>{});
-    final Future<List<Map<String, dynamic>>> attemptsFuture = root
-        .collection('quiz_attempts')
-        .orderBy('createdAt', descending: true)
-        .limit(5)
-        .get()
-        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
-        .catchError((_) => <Map<String, dynamic>>[]);
-    final Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> chatsFuture =
-        root.collection('ai_chats')
-            .orderBy('updatedAt', descending: true)
-            .limit(3)
-            .get()
-            .then((snapshot) => snapshot.docs)
-            .catchError((_) => <QueryDocumentSnapshot<Map<String, dynamic>>>[]);
-    final Future<List<Map<String, dynamic>>> legacyFuture = root
-        .collection('ai_teacher_messages')
-        .orderBy('createdAt', descending: true)
-        .limit(8)
-        .get()
-        .then((snapshot) => snapshot.docs.map((doc) => doc.data()).toList())
-        .catchError((_) => <Map<String, dynamic>>[]);
+    // Study Setup, curated memory, quiz attempts and chat history are optional
+    // learning signals. Bound each read independently and keep available data.
+    final profileFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root.get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final answersFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root
+          .collection('onboarding')
+          .doc('answers')
+          .get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final memoryFuture = loadOptionalStudyContext<Map<String, dynamic>>(
+      load: () async => (await root
+          .collection('ai_study_memory')
+          .doc('profile')
+          .get()).data() ?? <String, dynamic>{},
+      fallback: <String, dynamic>{},
+    );
+    final attemptsFuture = loadOptionalStudyContext<List<Map<String, dynamic>>>(
+      load: () async => (await root
+          .collection('quiz_attempts')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get()).docs.map((doc) => doc.data()).toList(),
+      fallback: <Map<String, dynamic>>[],
+    );
+    final chatsFuture = loadOptionalStudyContext<
+        List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+      load: () async => (await root
+          .collection('ai_chats')
+          .orderBy('updatedAt', descending: true)
+          .limit(3)
+          .get()).docs,
+      fallback: <QueryDocumentSnapshot<Map<String, dynamic>>>[],
+    );
+    final legacyFuture = loadOptionalStudyContext<List<Map<String, dynamic>>>(
+      load: () async => (await root
+          .collection('ai_teacher_messages')
+          .orderBy('createdAt', descending: true)
+          .limit(8)
+          .get()).docs.map((doc) => doc.data()).toList(),
+      fallback: <Map<String, dynamic>>[],
+    );
 
     final results = await Future.wait<Object?>([
       profileFuture,
@@ -146,21 +154,18 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     );
     if (preferredLanguage != null) answers['language'] = preferredLanguage;
 
-    // Read each chat page concurrently and isolate failures per chat. A single
-    // unavailable conversation must not discard other useful study signals.
+    // One stalled or denied chat page must not discard the student's other
+    // learning signals. Preserve chat recency and bound each page separately.
     final chatMessagePages = await Future.wait(
-      chats.take(3).map((chat) async {
-        try {
-          final messages = await chat.reference
-              .collection('messages')
-              .orderBy('createdAt', descending: true)
-              .limit(4)
-              .get();
-          return messages.docs.map((doc) => doc.data()).toList();
-        } catch (_) {
-          return <Map<String, dynamic>>[];
-        }
-      }),
+      chats.take(3).map((chat) =>
+          loadOptionalStudyContext<List<Map<String, dynamic>>>(
+        load: () async => (await chat.reference
+            .collection('messages')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get()).docs.map((doc) => doc.data()).toList(),
+        fallback: <Map<String, dynamic>>[],
+      )),
     );
     final priorQuestions =
         extractRecentTeacherQuestionsFromNewestFirstPages(chatMessagePages);
