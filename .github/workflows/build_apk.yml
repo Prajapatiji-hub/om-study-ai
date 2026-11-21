@@ -3,12 +3,16 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/ai-chat-sessions]
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
+
+concurrency:
+  group: om-study-ai-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -35,6 +39,7 @@ jobs:
           cd workers
           npm install --no-audit --no-fund
           npm run check
+          npx wrangler deploy --dry-run --outdir /tmp/om-study-ai-worker-dry-run
           cd ..
 
       - uses: actions/setup-java@v4
@@ -52,6 +57,15 @@ jobs:
           cp -r lib /tmp/lib_backup
           cp pubspec.yaml /tmp/pubspec_backup.yaml
           flutter create --platforms=android --org com.omstudy --project-name om_study_ai .
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text(encoding='utf-8')
+          permission = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+          if 'android.permission.RECORD_AUDIO' not in s:
+              s = s.replace('<application', permission + '    <application', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
           rm -rf lib && cp -r /tmp/lib_backup lib
           cp /tmp/pubspec_backup.yaml pubspec.yaml
 
@@ -78,6 +92,34 @@ jobs:
 
       - name: Install Flutter dependencies
         run: flutter pub get
+
+      - name: Analyze Flutter source
+        run: flutter analyze --no-pub
+
+      - name: Run Flutter tests
+        run: flutter test --no-pub
+
+      - name: Run Firestore Rules Emulator tests
+        run: |
+          npm --prefix rules-tests install --no-audit --no-fund
+          npm --prefix rules-tests test
+
+      - name: Install Android NDK with download retry
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          NDK_VERSION="28.2.13676358"
+          for attempt in 1 2 3; do
+            echo "Installing Android NDK $NDK_VERSION (attempt $attempt/3)"
+            if "$SDKMANAGER" --install "ndk;$NDK_VERSION" && [ -f "$ANDROID_HOME/ndk/$NDK_VERSION/source.properties" ]; then
+              echo "Android NDK installation verified."
+              exit 0
+            fi
+            rm -rf "$ANDROID_HOME/ndk/$NDK_VERSION" "$ANDROID_HOME/.temp"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Android NDK installation failed after 3 attempts."
+          exit 1
 
       - name: Build release APK
         env:

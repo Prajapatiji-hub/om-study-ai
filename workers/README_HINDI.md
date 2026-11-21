@@ -36,6 +36,17 @@ The Worker validates Firebase ID tokens against Google's public signing keys and
 ## Security limitations before public launch
 
 - Firebase ID token verification is implemented.
-- The Worker does not yet have a durable per-user rate limiter. Gemini project quotas are the provider-side backstop; add a free-tier-compatible abuse-control strategy before broad public launch.
-- App Check enforcement, persistent AI memory, and chat transcript storage are not implemented.
+- Tutor, quiz and image endpoints use Cloudflare Rate Limiting bindings keyed by the verified Firebase UID. These are approximate per-edge limits, not a strict global or daily cap; all endpoints fail closed if their limiter is unavailable.
+- The app stores private Study Memory and chat sessions under each student's `users/{uid}` Firestore path; checked-in Rules and Emulator tests exist, but production Rules are not published. The Worker does not persist prompts or generated images. Firebase App Check enforcement is not implemented.
 - Do not deploy or share the Worker URL until the secret is configured.
+
+
+## Explicit image generation (source implementation; not deployed)
+
+- The dashboard exposes **AI चित्र बनाएँ**. It sends a short prompt only after the student taps Generate; ordinary chat never triggers image generation.
+- The Worker authenticates the Firebase ID token, checks a separate UID-keyed rate limiter (one request per minute), and fails closed if the limiter is missing.
+- Llama Guard 3 must explicitly return `safe`; unsafe, unknown or failed moderation blocks generation.
+- FLUX.1 [schnell] runs at four steps and returns a 512-class image as temporary bytes. The app does not upload it to Firestore/R2 or retain it after leaving the screen.
+- Image generation uses only the existing Workers AI binding. It has no Gemini or paid-provider fallback. On Workers Free, the shared Workers AI allocation is 10,000 Neurons/day; exceeding it causes further operations to fail. If the account is on a Paid plan, overage billing may apply, so do not upgrade or enable billing for this feature.
+- Cloudflare Rate Limiting is approximate per edge location and is not a daily quota. Do not describe the one-per-minute limit as a global cost cap.
+- This is code only. No Worker has been deployed and no Cloudflare account setting or secret has been changed. Deploy only after owner approval and confirm the account remains on Free.
