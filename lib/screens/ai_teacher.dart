@@ -485,22 +485,9 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with WidgetsBindingOb
         buildRecentTeacherChatContext(chatMessagePages);
     if (recentChatContext.isNotEmpty) parts.add(recentChatContext);
 
-    // Older flat history stays read-only and is never migrated or rewritten.
-    final legacyQa = legacy.reversed.map((data) {
-      final role = data['role'];
-      final text = data['text'];
-      if ((role != 'user' && role != 'model') ||
-          text is! String ||
-          text.trim().isEmpty) {
-        return '';
-      }
-      final clean = text.trim().replaceAll(RegExp(r'\\s+'), ' ');
-      return '${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: '
-          '${clean.length > 220 ? '${clean.substring(0, 220)}…' : clean}';
-    }).where((line) => line.isNotEmpty).toList();
-    if (legacyQa.isNotEmpty) {
-      parts.add('पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${legacyQa.join(' | ')}');
-    }
+    // Older flat history remains read-only; normalize it through the shared formatter.
+    final legacyContext = buildLegacyTeacherChatContext(legacy);
+    if (legacyContext.isNotEmpty) parts.add(legacyContext);
 
     return joinStudyContextParts(parts, preferredLanguage: preferredLanguage);
   }

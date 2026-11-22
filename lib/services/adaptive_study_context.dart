@@ -341,6 +341,33 @@ String buildRecentTeacherChatContext(
       '(केवल प्रासंगिक होने पर उपयोग करें): ${lines.join(' | ')}';
 }
 
+
+/// Formats the original flat AI Teacher history without changing or migrating
+/// its documents. Firestore returns the page newest-first; context is restored
+/// to chronological order and whitespace is normalized before it reaches AI.
+String buildLegacyTeacherChatContext(
+  List<Map<String, dynamic>> newestFirstMessages, {
+  int maxMessages = 8,
+  int maxCharacters = 220,
+}) {
+  if (maxMessages <= 0 || maxCharacters <= 0) return '';
+  final lines = <String>[];
+  for (final message in newestFirstMessages.reversed) {
+    final role = message['role'];
+    final rawText = message['text'];
+    if ((role != 'user' && role != 'model') || rawText is! String) continue;
+    final clean = rawText.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (clean.isEmpty) continue;
+    final bounded = clean.length > maxCharacters
+        ? '${clean.substring(0, maxCharacters)}…'
+        : clean;
+    lines.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: $bounded');
+    if (lines.length >= maxMessages) break;
+  }
+  if (lines.isEmpty) return '';
+  return 'पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: ${lines.join(' | ')}';
+}
+
 /// Joins independently collected learning signals with real newline separators,
 /// then enforces the request-size ceiling before sending context to the Worker.
 String joinStudyContextParts(

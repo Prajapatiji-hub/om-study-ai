@@ -455,3 +455,17 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Follow-up hardening adds a shared 8-second timeout/fallback for optional context reads in both AI Teacher and adaptive quiz. A slow or unavailable optional collection/page will no longer hold the full AI request indefinitely; other available student signals remain usable. Required writes and auth checks do not use this fallback helper.
 - Added unit tests for successful reads, thrown errors, timeout fallback, single invocation and fallback immutability. Build #222 must validate these tests, Flutter Analyze, the Firestore Emulator suite, APK compilation and artifact upload.
 - No Firebase Rules publication, Cloudflare Worker deployment, Firebase/Cloudflare settings change, secret access, paid-service activation or billing change occurred. Real-device signup, setup, privacy, voice and image-generation acceptance remains pending.
+
+
+## Build #222 verified artifact and legacy-history normalization follow-up — 22 November 2026
+
+- PR #21 remains Open, Draft and Unmerged; it targets `main` from `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
+- PR #22 remains Open, Draft and Unmerged; it targets PR #21's feature branch. Its head branch `feature/ai-chat-sessions` is `eee89d6aa05f4fd5efea97e10afa0830a3576cea`, matching the latest branch commit and Build #222.
+- Build #222 (run ID `44860586526`) completed successfully for commit `eee89d6aa05f4fd5efea97e10afa0830a3576cea`.
+- Artifact: `om-study-ai-apk`, artifact ID `14690165279`, ZIP size 26,016,612 bytes, expiry 19 February 2027 03:20:13 UTC; GitHub SHA-256 `1b4874766138d2eb1f1e291333dd781dce207f0e63c8aec0f65e014ceb6c3aaa`.
+- Extracted APK: 54,005,750 bytes; SHA-256 `70f8f86d5edb63be4edb44148f9474c690a96cd17c4d085bd69dc646c4cf6adc`. The downloaded ZIP digest matches GitHub's artifact digest; ZIP integrity passed and the entry was identified as an Android APK.
+- All 18 reported job/cleanup steps passed. Worker JavaScript: 27 passed; Flutter Analyze: no issues; Flutter tests: 104 passed; Firestore Rules Emulator: 10 passed; Android NDK, release APK compilation and artifact upload succeeded.
+- The Build #222 logs show the optional AI context timeout/fallback helper passed its tests. The helper is used only for optional personalization reads; required authentication, onboarding completion and writes are not weakened.
+- Follow-up source review found that the legacy flat AI Teacher history formatter used an over-escaped whitespace regular expression. Newline/tab whitespace could therefore remain unnormalized in that one legacy context path. The follow-up extracts a shared formatter using the same whitespace normalization as recent chat and quiz context, preserves chronological order and roles, and bounds message count/length without writing to legacy documents.
+- Added tests for whitespace normalization, chronological order, malformed message filtering and context bounds. Build #223 must validate the formatter tests, Analyze, Rules Emulator, APK compilation and artifact upload.
+- No Firebase Rules publication, Cloudflare Worker deployment, Firebase/Cloudflare settings change, secret access, paid-service activation or billing change occurred. Real-device signup, setup, privacy, voice and image-generation acceptance remains pending.
