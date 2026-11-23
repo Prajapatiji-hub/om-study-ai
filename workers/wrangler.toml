@@ -8,3 +8,26 @@ FIREBASE_PROJECT_ID = "prajapati-507d7"
 
 [ai]
 binding = "AI"
+
+# Approximate per-user limits; Cloudflare enforces these independently per edge location.
+[[ratelimits]]
+name = "AI_RATE_LIMITER"
+namespace_id = "2026110401"
+[ratelimits.simple]
+limit = 20
+period = 60
+
+[[ratelimits]]
+name = "AI_QUIZ_RATE_LIMITER"
+namespace_id = "2026110402"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# One image request per user per minute; still an approximate per-edge limit.
+[[ratelimits]]
+name = "AI_IMAGE_RATE_LIMITER"
+namespace_id = "2026110501"
+[ratelimits.simple]
+limit = 1
+period = 60
