@@ -189,6 +189,18 @@ test('onboarding, progress, plans, notes and quiz attempts are owner-only for re
   const owner = dbFor('alice');
   const otherStudent = dbFor('bob');
   const anonymous = env.unauthenticatedContext().firestore();
+  // This is an existing learner: seed the legacy profile before creating
+  // unmarked onboarding answers, which new accounts are no longer allowed to do.
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/alice'), {
+      uid: 'alice',
+      displayName: 'Alice',
+      email: 'alice@example.test',
+      language: 'hi',
+      selectedGoals: [],
+      createdAt: serverTimestamp(),
+    });
+  });
   const privateCollections = [
     {
       collection: 'onboarding',

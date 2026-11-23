@@ -86,7 +86,8 @@ service cloud.firestore {
       match /onboarding/{docId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid) && (docId != 'answers'
-          || (request.resource.data._setupRequired == true
+          || (('_setupRequired' in request.resource.data)
+            && request.resource.data._setupRequired == true
             && request.resource.data._setupCreatedAt == request.time)
           // Existing profiles may add legacy setup answers without a new-user gate.
           || exists(/databases/$(database)/documents/users/$(uid)));
