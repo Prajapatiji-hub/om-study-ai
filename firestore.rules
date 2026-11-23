@@ -6,10 +6,18 @@ service cloud.firestore {
 
     function validNewProfile(uid) {
       let d=request.resource.data;
+      let answersPath = /databases/$(database)/documents/users/$(uid)/onboarding/answers;
       return d.keys().hasOnly(['uid','displayName','email','language','selectedGoals','createdAt'])
         && d.uid==uid && d.displayName is string && d.displayName.size()>0 && d.displayName.size()<=80
+        && d.createdAt == request.time
         && (!('language' in d)||d.language in ['hi','en','hinglish'])
-        && (!('selectedGoals' in d)||d.selectedGoals is list);
+        && (!('selectedGoals' in d)||d.selectedGoals is list)
+        // New profiles must be created atomically with the required setup marker.
+        // A pre-existing answers document is preserved for legacy-account recovery.
+        && (exists(answersPath)
+          || (existsAfter(answersPath)
+            && getAfter(answersPath).data._setupRequired == true
+            && getAfter(answersPath).data._setupCreatedAt == request.time));
     }
     function validLegacyProfileUpdate(uid) {
       let d=request.resource.data;
@@ -78,9 +86,10 @@ service cloud.firestore {
       match /onboarding/{docId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid) && (docId != 'answers'
-          || !('_setupRequired' in request.resource.data)
           || (request.resource.data._setupRequired == true
-            && request.resource.data._setupCreatedAt == request.time));
+            && request.resource.data._setupCreatedAt == request.time)
+          // Existing profiles may add legacy setup answers without a new-user gate.
+          || exists(/databases/$(database)/documents/users/$(uid)));
         allow update: if isOwner(uid)
           && (docId != 'answers' || validSetupMarkerTransition());
         // Deleting the answers document must never remove a new-account gate.

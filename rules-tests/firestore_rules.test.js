@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 let env;
 
@@ -40,6 +40,56 @@ test('private profile is readable only by its owner', async () => {
   await assertSucceeds(getDoc(doc(dbFor('alice'), 'users/alice')));
   await assertFails(getDoc(doc(dbFor('bob'), 'users/alice')));
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'users/alice')));
+});
+
+test('new profile creation requires a setup marker in the same atomic write', async () => {
+  const owner = dbFor('new-student');
+  const profile = doc(owner, 'users/new-student');
+  const answers = doc(owner, 'users/new-student/onboarding/answers');
+  const profileData = {
+    uid: 'new-student',
+    displayName: 'New Student',
+    email: 'new-student@example.test',
+    language: 'hi',
+    selectedGoals: [],
+    createdAt: serverTimestamp(),
+  };
+
+  await assertFails(setDoc(profile, profileData));
+  await assertFails(setDoc(answers, { language: 'hi' }));
+
+  const batch = writeBatch(owner);
+  batch.set(profile, profileData);
+  batch.set(answers, {
+    _setupRequired: true,
+    _setupCreatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(profile));
+  await assertSucceeds(getDoc(answers));
+});
+
+test('legacy setup answers survive restoration of a missing profile without a new gate', async () => {
+  const owner = dbFor('legacy-missing-profile');
+  const answers = doc(owner, 'users/legacy-missing-profile/onboarding/answers');
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/legacy-missing-profile/onboarding/answers'), {
+      goals: ['school'],
+      school_class: '12',
+      language: 'hi',
+    });
+  });
+
+  await assertSucceeds(setDoc(doc(owner, 'users/legacy-missing-profile'), {
+    uid: 'legacy-missing-profile',
+    displayName: 'Legacy Student',
+    email: 'legacy@example.test',
+    language: 'hi',
+    selectedGoals: ['school'],
+    createdAt: serverTimestamp(),
+  }));
+  await assertSucceeds(getDoc(answers));
+  await assertSucceeds(updateDoc(answers, { language: 'en' }));
 });
 
 test('AI Study Memory is owner-only, editable, bounded and clearable without deletion', async () => {
@@ -322,6 +372,16 @@ test('already-completed accounts can edit setup without a new-user gate', async 
 test('legacy setup documents without a marker remain editable', async () => {
   const owner = dbFor('legacy-student');
   const answers = doc(owner, 'users/legacy-student/onboarding/answers');
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/legacy-student'), {
+      uid: 'legacy-student',
+      displayName: 'Legacy Student',
+      email: 'legacy@example.test',
+      language: 'hi',
+      selectedGoals: [],
+      createdAt: serverTimestamp(),
+    });
+  });
   await assertSucceeds(setDoc(answers, { language: 'hi' }));
   await assertSucceeds(setDoc(answers, { goals: ['school'] }, { merge: true }));
   await assertSucceeds(setDoc(answers, { school_class: '12' }, { merge: true }));
