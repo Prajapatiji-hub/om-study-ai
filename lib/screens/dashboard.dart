@@ -113,7 +113,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return StreamBuilder<Map<String, dynamic>>(
               stream: widget.repo.answers(),
               builder: (context, setupSnap) {
-                if (setupSnap.hasError) {
+                final setupAccess = resolveStudySetupAccess(
+                  hasData: setupSnap.hasData,
+                  hasError: setupSnap.hasError,
+                  answers: setupSnap.data,
+                );
+                if (setupAccess == StudySetupAccessState.error) {
                   return Scaffold(
                     body: Center(
                       child: Padding(
@@ -136,12 +141,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   );
                 }
-                if (!setupSnap.hasData) {
+                if (setupAccess == StudySetupAccessState.loading) {
                   return const Scaffold(
                     body: Center(child: CircularProgressIndicator()),
                   );
                 }
-                if (isRequiredStudySetupPending(setupSnap.data ?? const {})) {
+                if (setupAccess == StudySetupAccessState.setupRequired) {
                   return OnboardingScreen(repo: widget.repo, requiredForNewAccount: true);
                 }
                 return Scaffold(

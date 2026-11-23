@@ -505,3 +505,17 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Updated the owner-only test fixture to seed Alice's existing profile before creating her unmarked legacy answers document. This preserves the intended legacy-account behavior while retaining denial for new accounts without the required marker.
 - Android NDK, release APK compilation and artifact upload were skipped after the Emulator failure. Build #225 has no artifact. Build #226 must validate the corrected rules expression and fixture, then complete NDK, APK and artifact upload.
 - No Firebase Rules were published. The single consolidated candidate remains in the repository for final review after all paths are finalized. No Worker deployment, settings change, secret access, paid-service activation, billing change or repository visibility change occurred.
+
+
+## Build #226 verified artifact and fail-closed dashboard access regression — 23 November 2026
+
+- PR #21 remains Open, Draft and Unmerged; it targets `main` from `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`.
+- PR #22 remains Open, Draft and Unmerged; it targets PR #21's feature branch. Its head branch `feature/ai-chat-sessions` is `2a5ef87c4e40734e47f580083773763ca1487142`, matching the latest branch commit and Build #226.
+- Build #226 (run ID `45104016537`) completed successfully on 23 November 2026 for commit `2a5ef87c4e40734e47f580083773763ca1487142`.
+- Artifact: `om-study-ai-apk`, artifact ID `14787052134`, ZIP size 26,017,289 bytes, expiry 21 February 2027 03:06:50 UTC; GitHub SHA-256 `1d8c27b2ccf1cd27216e0839dba53c66e6a9a51af980500f2d31f6b7cd8fb054`.
+- Extracted APK: 54,005,750 bytes; SHA-256 `1a04d1c161874ad30f2039fd9e9b5103edfcf5e976f795748faee1511cce66c8`. The downloaded ZIP digest matches GitHub's artifact digest, ZIP integrity passed, and the archive contains `app-release.apk`.
+- All 19 reported build and cleanup steps passed. Worker JavaScript: 27/27; Flutter Analyze: no issues; Flutter tests: 108 passed; Firestore Rules Emulator: 12/12; Android NDK installation, release APK compilation and artifact upload succeeded.
+- Build #225's Firestore Emulator failure was corrected: the rule now checks that `_setupRequired` exists before reading it, and the existing-account fixture seeds the legacy profile before creating unmarked setup answers. Build #226 validates the corrected rule and fixture.
+- The consolidated Firestore Rules candidate remains unpublished. The new-account profile and setup marker are created atomically; saved legacy answers remain intact when restoring a missing profile. No production Firebase Rules or Worker deployment occurred.
+- Source review confirmed that Dashboard already displays a loading state while the setup document is unresolved, offers retry on read errors, routes `_setupRequired: true` into required onboarding, and preserves marker-free legacy accounts. The follow-up centralizes this decision in a pure access-state resolver and adds six regression cases for loading, read error, required marker, completed marker, legacy answers and empty legacy documents. Build #227 must validate these cases with Analyze, the full Flutter suite, Rules Emulator, APK compilation and artifact upload.
+- No Firebase Rules publication, Cloudflare Worker deployment, settings change, secret access, paid-service activation, billing change or repository visibility change occurred. Real-device signup, setup, cross-account privacy, voice and image-generation acceptance remains pending.
