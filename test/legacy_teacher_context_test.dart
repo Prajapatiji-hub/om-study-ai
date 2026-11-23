@@ -37,8 +37,11 @@ void main() {
         {'role': 'user', 'text': 'first message'},
       ], maxMessages: 2, maxCharacters: 6);
 
-      expect(context, contains('विद्यार्थी: first…'));
-      expect(context, contains('विद्यार्थी: second'));
+      expect(
+        context,
+        'पुरानी सुरक्षित बातचीत के अध्ययन-संकेत: '
+        'विद्यार्थी: first… | विद्यार्थी: second',
+      );
       expect(context, isNot(contains('third')));
     });
 

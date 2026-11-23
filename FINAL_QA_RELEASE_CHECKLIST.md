@@ -469,3 +469,17 @@ For each checklist item record: **PASS / FAIL / BLOCKED / NOT TESTED**, steps pe
 - Follow-up source review found that the legacy flat AI Teacher history formatter used an over-escaped whitespace regular expression. Newline/tab whitespace could therefore remain unnormalized in that one legacy context path. The follow-up extracts a shared formatter using the same whitespace normalization as recent chat and quiz context, preserves chronological order and roles, and bounds message count/length without writing to legacy documents.
 - Added tests for whitespace normalization, chronological order, malformed message filtering and context bounds. Build #223 must validate the formatter tests, Analyze, Rules Emulator, APK compilation and artifact upload.
 - No Firebase Rules publication, Cloudflare Worker deployment, Firebase/Cloudflare settings change, secret access, paid-service activation or billing change occurred. Real-device signup, setup, privacy, voice and image-generation acceptance remains pending.
+
+
+## Build #223 failure analysis and bounded-history truncation fix — 23 November 2026
+
+- Latest Build APK run at inspection: Build #223, run ID `44978349380`, branch `feature/ai-chat-sessions`, commit `5251acc0cbfe9644e9b7c6a6a209050aacc944e0`; conclusion: FAILURE.
+- PR #21 is Open, Draft and Unmerged; head `feature/ai-chat-sessions-and-voice` at `08e11a4ea15eba25545a5dd8b24e0bed88a2beb5`, base `main`.
+- PR #22 is Open, Draft and Unmerged; head `feature/ai-chat-sessions` at `5251acc0cbfe9644e9b7c6a6a209050aacc944e0`, base PR #21's feature branch.
+- Build #223: checkout, Firebase configuration check, Worker JavaScript validation (27/27), Java/Flutter setup, Android platform generation, Firebase source generation, dependency install and Flutter Analyze all passed.
+- Flutter tests reported 107 passed and 1 failed. The failing test was `legacy AI Teacher context formatting bounds message count and message length` in `test/legacy_teacher_context_test.dart`.
+- Exact failure: expected `विद्यार्थी: first…`; actual output was `विद्यार्थी: first …`. The truncation boundary included a trailing space immediately before the ellipsis. This was a deterministic context-formatting/test failure, not a Firebase permission or provider failure.
+- Corrected the legacy-history formatter to trim trailing whitespace from the bounded prefix before appending the ellipsis. Tightened the regression assertion to compare the complete expected bounded context and preserve the message-count check. No Firestore documents, old chat rows, user data or Rules were changed.
+- Firestore Emulator tests, Android NDK, release APK compilation and artifact upload were skipped because the Flutter test step failed. Build #223 produced no artifact.
+- Build #224 must rerun Flutter Analyze, all Flutter tests, the Firestore Rules Emulator suite, Android NDK setup, release APK compilation and upload of `om-study-ai-apk`.
+- No Firebase Rules publication, Cloudflare Worker deployment, Firebase/Cloudflare settings change, secret access, paid-service activation, billing change or repository visibility change occurred. Real-device acceptance and final production approvals remain pending.

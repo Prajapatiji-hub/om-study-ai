@@ -359,7 +359,7 @@ String buildLegacyTeacherChatContext(
     final clean = rawText.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (clean.isEmpty) continue;
     final bounded = clean.length > maxCharacters
-        ? '${clean.substring(0, maxCharacters)}…'
+        ? '${clean.substring(0, maxCharacters).trimRight()}…'
         : clean;
     lines.add('${role == 'user' ? 'विद्यार्थी' : 'AI शिक्षक'}: $bounded');
     if (lines.length >= maxMessages) break;
